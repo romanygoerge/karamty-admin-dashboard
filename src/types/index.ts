@@ -14,15 +14,41 @@ export interface Profile {
   chapters_read?: number;
   last_active_date?: string;
   is_profile_complete?: boolean;
+  is_subscribed?: boolean;
+  subscription_plan?: string;
+  subscription_end_date?: string;
+  is_supporter?: boolean;
   created_at?: string;
   updated_at?: string;
 }
 
+export interface PaymentRequest {
+  id: string;
+  user_id?: string;
+  user_name: string;
+  user_phone?: string;
+  user_email?: string;
+  type: 'subscription' | 'donation';
+  plan: 'monthly' | 'yearly' | 'custom';
+  amount: number;
+  sender_wallet_or_phone?: string;
+  receipt_url?: string;
+  notes?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  duration_months?: number;
+  admin_notes?: string;
+  created_at: string;
+  reviewed_at?: string;
+}
+
 export interface CommunityPost {
   id: string;
-  author_id: string;
+  user_id?: string;
+  author_id?: string;
   author_name: string;
+  author_role?: string;
   author_avatar?: string;
+  author_church?: string;
   church_name?: string;
   content: string;
   image_url?: string;
@@ -35,8 +61,10 @@ export interface CommunityPost {
 export interface PostComment {
   id: string;
   post_id: string;
-  author_id: string;
+  user_id?: string;
+  author_id?: string;
   author_name: string;
+  author_role?: string;
   author_avatar?: string;
   content: string;
   created_at: string;

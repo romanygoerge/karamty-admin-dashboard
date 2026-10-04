@@ -10,6 +10,7 @@ import { InventoryView } from './views/InventoryView';
 import { FinanceView } from './views/FinanceView';
 import { RewardsView } from './views/RewardsView';
 import { NotificationsView } from './views/NotificationsView';
+import { SubscriptionsView } from './views/SubscriptionsView';
 import { supabase } from './lib/supabase';
 import { Profile, CommunityPost, SundaySchoolStudent, InventoryItem, BudgetItem } from './types';
 
@@ -24,6 +25,12 @@ export function App() {
   const [students, setStudents] = useState<SundaySchoolStudent[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [budget, setBudget] = useState<BudgetItem[]>([]);
+
+  // Count pending subscription/donation payment requests
+  const pendingSubCount = budget.filter(b => 
+    (b.category === 'subscription' || b.category === 'donation') && 
+    (b.notes?.includes('"status":"pending"') || !b.notes?.includes('"status":'))
+  ).length;
 
   // Fetch all initial data
   const fetchAllData = useCallback(async () => {
@@ -92,6 +99,10 @@ export function App() {
       title: 'لوحة التحكم والقيادة',
       subtitle: 'نظرة شاملة ومؤشرات حية لمتابعة كافة أنشطة وخدمات الكنيسة'
     },
+    subscriptions: {
+      title: 'إدارة الاشتراكات والتبرعات والدعم',
+      subtitle: 'متابعة تحويلات InstaPay (01204062941)، تفعيل الاشتراكات الشهرية والسنوية، وإلغاء الإعلانات للمستخدمين'
+    },
     users: {
       title: 'إدارة الخدام والأعضاء',
       subtitle: 'قاعدة بيانات المستخدمين والخدام وتعديل الصلاحيات والنقاط'
@@ -134,6 +145,7 @@ export function App() {
         onSelectTab={setCurrentTab}
         isSyncing={isSyncing}
         onRefresh={fetchAllData}
+        pendingSubCount={pendingSubCount}
       />
 
       {/* Main Content Area */}
@@ -158,6 +170,10 @@ export function App() {
             />
           )}
 
+          {currentTab === 'subscriptions' && (
+            <SubscriptionsView />
+          )}
+
           {currentTab === 'users' && (
             <UsersView
               profiles={profiles}
@@ -179,6 +195,7 @@ export function App() {
           {currentTab === 'community' && (
             <CommunityView
               posts={posts}
+              profiles={profiles}
               onRefresh={fetchAllData}
             />
           )}

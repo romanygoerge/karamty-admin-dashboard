@@ -9,16 +9,17 @@ import {
   CheckCircle,
   Pin
 } from 'lucide-react';
-import { CommunityPost, PostComment } from '../types';
+import { CommunityPost, PostComment, Profile } from '../types';
 import { Modal } from '../components/Modal';
 import { supabase } from '../lib/supabase';
 
 interface CommunityViewProps {
   posts: CommunityPost[];
+  profiles?: Profile[];
   onRefresh: () => void;
 }
 
-export const CommunityView: React.FC<CommunityViewProps> = ({ posts, onRefresh }) => {
+export const CommunityView: React.FC<CommunityViewProps> = ({ posts, profiles = [], onRefresh }) => {
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [activePost, setActivePost] = useState<CommunityPost | null>(null);
@@ -154,36 +155,42 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ posts, onRefresh }
 
       {/* Posts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {posts.map((post) => (
-          <div
-            key={post.id}
-            className="glass-panel rounded-2xl overflow-hidden flex flex-col justify-between border border-slate-800 hover:border-slate-700 transition-all"
-          >
-            <div>
-              {/* Post Header */}
-              <div className="p-4 flex items-center justify-between border-b border-slate-800/60">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center font-bold text-slate-300">
-                    {post.author_avatar ? (
-                      <img src={post.author_avatar} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      post.author_name?.charAt(0) || 'م'
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                      {post.author_name}
-                      {post.is_announcement && (
-                        <span className="p-0.5 rounded bg-amber-500/20 text-gold-400 text-[10px]" title="إعلان رسمي">
-                          <Pin className="w-3 h-3" />
-                        </span>
+        {posts.map((post) => {
+          const authorProfile = profiles.find((p) => p.id === (post.user_id || post.author_id));
+          const displayAuthorName = authorProfile?.full_name?.trim() || post.author_name;
+          const displayAvatar = authorProfile?.avatar_url || post.author_avatar;
+          const displayChurch = authorProfile?.church?.trim() || post.author_church || post.church_name || 'عام';
+
+          return (
+            <div
+              key={post.id}
+              className="glass-panel rounded-2xl overflow-hidden flex flex-col justify-between border border-slate-800 hover:border-slate-700 transition-all"
+            >
+              <div>
+                {/* Post Header */}
+                <div className="p-4 flex items-center justify-between border-b border-slate-800/60">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center font-bold text-slate-300">
+                      {displayAvatar ? (
+                        <img src={displayAvatar} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        displayAuthorName?.charAt(0) || 'م'
                       )}
-                    </h4>
-                    <p className="text-[11px] text-slate-400">
-                      {new Date(post.created_at).toLocaleDateString('ar-EG')} • {post.church_name || 'عام'}
-                    </p>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        {displayAuthorName}
+                        {post.is_announcement && (
+                          <span className="p-0.5 rounded bg-amber-500/20 text-gold-400 text-[10px]" title="إعلان رسمي">
+                            <Pin className="w-3 h-3" />
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        {new Date(post.created_at).toLocaleDateString('ar-EG')} • {displayChurch}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
                 <button
                   onClick={() => handleDeletePost(post.id)}
@@ -235,7 +242,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ posts, onRefresh }
               </button>
             </div>
           </div>
-        ))}
+        );
+      })}
 
         {posts.length === 0 && (
           <div className="col-span-full py-16 text-center text-slate-500 text-sm">
@@ -325,7 +333,11 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ posts, onRefresh }
       <Modal
         isOpen={isCommentsOpen}
         onClose={() => setIsCommentsOpen(false)}
-        title={`التعليقات على منشور: ${activePost?.author_name || ''}`}
+        title={`التعليقات على منشور: ${
+          profiles.find((p) => p.id === (activePost?.user_id || activePost?.author_id))?.full_name?.trim() ||
+          activePost?.author_name ||
+          ''
+        }`}
       >
         <div className="space-y-3 text-xs">
           {loadingComments ? (
@@ -333,29 +345,34 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ posts, onRefresh }
           ) : comments.length === 0 ? (
             <p className="text-center text-slate-500 py-6">لا توجد تعليقات على هذا المنشور حتى الآن.</p>
           ) : (
-            comments.map((comment) => (
-              <div
-                key={comment.id}
-                className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 flex items-start justify-between gap-3"
-              >
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-white">{comment.author_name}</span>
-                    <span className="text-[10px] text-slate-400">
-                      {new Date(comment.created_at).toLocaleDateString('ar-EG')}
-                    </span>
-                  </div>
-                  <p className="text-slate-300">{comment.content}</p>
-                </div>
-                <button
-                  onClick={() => handleDeleteComment(comment.id)}
-                  title="حذف هذا التعليق"
-                  className="p-1 rounded text-slate-500 hover:text-rose-400 transition-colors"
+            comments.map((comment) => {
+              const commentAuthorProfile = profiles.find((p) => p.id === (comment.user_id || comment.author_id));
+              const displayCommentAuthor = commentAuthorProfile?.full_name?.trim() || comment.author_name;
+
+              return (
+                <div
+                  key={comment.id}
+                  className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 flex items-start justify-between gap-3"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold text-white">{displayCommentAuthor}</span>
+                      <span className="text-[10px] text-slate-400">
+                        {new Date(comment.created_at).toLocaleDateString('ar-EG')}
+                      </span>
+                    </div>
+                    <p className="text-slate-300">{comment.content}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteComment(comment.id)}
+                    title="حذف هذا التعليق"
+                    className="p-1 rounded text-slate-500 hover:text-rose-400 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })
           )}
         </div>
       </Modal>

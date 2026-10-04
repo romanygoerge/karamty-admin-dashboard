@@ -13,7 +13,11 @@ import {
   Save,
   Search,
   Flame,
-  BookOpen
+  BookOpen,
+  Crown,
+  ShieldCheck,
+  Sparkles,
+  Clock
 } from 'lucide-react';
 import { Profile } from '../types';
 import { Modal } from '../components/Modal';
@@ -33,6 +37,13 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
+  // Subscription Management Modal State
+  const [isSubModalOpen, setIsSubModalOpen] = useState(false);
+  const [selectedSubUser, setSelectedSubUser] = useState<Profile | null>(null);
+  const [subPlan, setSubPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('monthly');
+  const [subDurationMonths, setSubDurationMonths] = useState<number>(1);
+  const [isSubProcessing, setIsSubProcessing] = useState(false);
+
   // New User Form State
   const [newFullName, setNewFullName] = useState('');
   const [newEmail, setNewEmail] = useState('');
@@ -42,12 +53,72 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
   const [newPoints, setNewPoints] = useState(100);
 
   // Edit User Form State
+  const [editFullName, setEditFullName] = useState('');
   const [editRole, setEditRole] = useState('');
   const [editPoints, setEditPoints] = useState(0);
   const [editStreakDays, setEditStreakDays] = useState(0);
   const [editChaptersRead, setEditChaptersRead] = useState(0);
   const [editChurch, setEditChurch] = useState('');
   const [editPhone, setEditPhone] = useState('');
+
+  const handleOpenSubscriptionModal = (user: Profile) => {
+    setSelectedSubUser(user);
+    const plan = user.subscription_plan === 'yearly' ? 'yearly' : user.subscription_plan === 'lifetime' ? 'lifetime' : 'monthly';
+    setSubPlan(plan);
+    setSubDurationMonths(plan === 'yearly' ? 12 : plan === 'lifetime' ? 0 : 1);
+    setIsSubModalOpen(true);
+  };
+
+  const handleToggleSubscription = async (activate: boolean) => {
+    if (!selectedSubUser) return;
+    setIsSubProcessing(true);
+    try {
+      // 1. Invoke Edge Function
+      const { data, error } = await supabase.functions.invoke('handle-payment-request', {
+        body: {
+          action: 'toggle_user_subscription',
+          user_id: selectedSubUser.id,
+          is_subscribed: activate,
+          plan: subPlan,
+          months: subPlan === 'lifetime' ? 0 : Number(subDurationMonths)
+        }
+      });
+
+      if (error) {
+        // Fallback directly to profiles table update
+        let endDate: string | null = null;
+        if (activate && subPlan !== 'lifetime') {
+          const d = new Date();
+          d.setMonth(d.getMonth() + Number(subDurationMonths));
+          endDate = d.toISOString();
+        }
+        const { error: pErr } = await supabase
+          .from('profiles')
+          .update({
+            is_subscribed: activate,
+            subscription_plan: activate ? subPlan : 'none',
+            subscription_end_date: endDate,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedSubUser.id);
+
+        if (pErr) throw pErr;
+      }
+
+      setStatusMessage(
+        activate
+          ? `تم بنجاح تفعيل اشتراك (${selectedSubUser.full_name || 'المستخدم'}) وإلغاء ظهور أي إعلانات له في التطبيق!`
+          : `تم إلغاء الاشتراك وإعادة الإعلانات للمستخدم (${selectedSubUser.full_name || ''}).`
+      );
+      setTimeout(() => setStatusMessage(null), 5000);
+      setIsSubModalOpen(false);
+      onRefresh();
+    } catch (err: any) {
+      alert('خطأ أثناء تحديث حالة الاشتراك: ' + err.message);
+    } finally {
+      setIsSubProcessing(false);
+    }
+  };
 
   const filteredProfiles = profiles.filter((p) => {
     const matchesSearch = 
@@ -68,6 +139,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
 
   const handleOpenEdit = (user: Profile) => {
     setSelectedUser(user);
+    setEditFullName(user.full_name || '');
     setEditRole(user.role || 'مستخدم');
     setEditPoints(user.points || 0);
     setEditStreakDays(user.streak_days || 0);
@@ -84,6 +156,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
       const { error } = await supabase
         .from('profiles')
         .update({
+          full_name: editFullName.trim(),
           role: editRole,
           points: editPoints,
           streak_days: editStreakDays,
@@ -96,7 +169,32 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
 
       if (error) throw error;
 
-      setStatusMessage('تم تحديث بيانات المستخدم بنجاح');
+      // مزامنة الاسم المحدث فوراً في جدول منشورات وتعليقات إكسبلور
+      if (editFullName.trim()) {
+        try {
+          await supabase
+            .from('community_posts')
+            .update({
+              author_name: editFullName.trim(),
+              author_church: editChurch.trim(),
+              author_role: editRole,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', selectedUser.id);
+
+          await supabase
+            .from('community_post_comments')
+            .update({
+              author_name: editFullName.trim(),
+              author_role: editRole,
+            })
+            .eq('user_id', selectedUser.id);
+        } catch (syncErr) {
+          console.error('Notice syncing posts on user edit:', syncErr);
+        }
+      }
+
+      setStatusMessage('تم تحديث بيانات المستخدم ومزامنة منشوراته بنجاح');
       setTimeout(() => setStatusMessage(null), 3000);
       setIsEditModalOpen(false);
       onRefresh();
@@ -263,6 +361,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
                 <th className="py-3.5 px-4 font-semibold">المستخدم</th>
                 <th className="py-3.5 px-4 font-semibold">الكنيسة / الخدمة</th>
                 <th className="py-3.5 px-4 font-semibold">الرتبة / الدور</th>
+                <th className="py-3.5 px-4 font-semibold">الاشتراك وإلغاء الإعلانات</th>
                 <th className="py-3.5 px-4 font-semibold">رصيد النقاط</th>
                 <th className="py-3.5 px-4 font-semibold">أيام متتالية</th>
                 <th className="py-3.5 px-4 font-semibold">أصحاحات مقروءة</th>
@@ -309,6 +408,30 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
                     </td>
 
                     <td className="py-3 px-4">
+                      {p.is_subscribed ? (
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                            <Crown className="w-3 h-3 text-amber-400" />
+                            {p.subscription_plan === 'yearly'
+                              ? 'سنوي (بدون إعلانات)'
+                              : p.subscription_plan === 'lifetime'
+                              ? 'دائم (مدى الحياة)'
+                              : 'شهري (بدون إعلانات)'}
+                          </span>
+                          {p.subscription_end_date && (
+                            <span className="text-[10px] text-slate-400">
+                              ينتهي: {new Date(p.subscription_end_date).toLocaleDateString('ar-EG')}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] text-slate-500 bg-slate-800/80 border border-slate-700/60">
+                          حساب عادي
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="py-3 px-4">
                       <div className="flex items-center gap-1 text-gold-400 font-bold">
                         <Coins className="w-3.5 h-3.5" />
                         <span>{p.points || 0}</span>
@@ -347,6 +470,17 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-center gap-2">
                         <button
+                          onClick={() => handleOpenSubscriptionModal(p)}
+                          title="إدارة اشتراك كرمتي بلس وإلغاء الإعلانات"
+                          className={`p-1.5 rounded-lg border transition-all ${
+                            p.is_subscribed
+                              ? 'bg-amber-500/20 text-amber-400 border-amber-500/40 hover:bg-amber-500 hover:text-slate-950'
+                              : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-amber-500/20 hover:text-amber-400 hover:border-amber-500/30'
+                          }`}
+                        >
+                          <Crown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           onClick={() => handleOpenEdit(p)}
                           title="تعديل المستخدم"
                           className="p-1.5 rounded-lg bg-slate-800 hover:bg-brand-600 text-slate-300 hover:text-white transition-all"
@@ -368,7 +502,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
 
               {filteredProfiles.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-500 text-xs">
+                  <td colSpan={9} className="py-8 text-center text-slate-500 text-xs">
                     لم يتم العثور على أي مستخدمين مطابقين
                   </td>
                 </tr>
@@ -385,6 +519,17 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
         title={`تعديل بيانات: ${selectedUser?.full_name || ''}`}
       >
         <div className="space-y-4 text-xs">
+          <div>
+            <label className="block text-slate-400 font-semibold mb-1">الاسم بالكامل (يظهر كناشر في إكسبلور والتطبيق)</label>
+            <input
+              type="text"
+              value={editFullName}
+              onChange={(e) => setEditFullName(e.target.value)}
+              placeholder="اسم المستخدم أو الخادم"
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500"
+            />
+          </div>
+
           <div>
             <label className="block text-slate-400 font-semibold mb-1">الرتبة / الدور في الخدمة</label>
             <select
@@ -570,6 +715,160 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Manage User Subscription Modal */}
+      <Modal
+        isOpen={isSubModalOpen}
+        onClose={() => setIsSubModalOpen(false)}
+        title="إدارة الاشتراك وإلغاء الإعلانات (كرمتي بلس)"
+      >
+        <div className="space-y-5 text-xs">
+          {/* User Brief */}
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/60 border border-slate-700">
+            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center font-bold text-slate-200">
+              {selectedSubUser?.avatar_url ? (
+                <img src={selectedSubUser.avatar_url} alt="" className="w-full h-full object-cover rounded-full" />
+              ) : (
+                selectedSubUser?.full_name?.charAt(0) || 'م'
+              )}
+            </div>
+            <div>
+              <p className="font-bold text-white text-sm">{selectedSubUser?.full_name || 'بدون اسم'}</p>
+              <p className="text-slate-400 text-xs">{selectedSubUser?.phone || selectedSubUser?.email || `@${selectedSubUser?.username || 'user'}`}</p>
+            </div>
+          </div>
+
+          {/* Current Status */}
+          <div className={`p-4 rounded-xl border flex items-center justify-between ${
+            selectedSubUser?.is_subscribed
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+              : 'bg-slate-800/80 border-slate-700 text-slate-300'
+          }`}>
+            <div className="flex items-center gap-2">
+              <Crown className="w-5 h-5 text-amber-400" />
+              <div>
+                <p className="font-bold text-sm">
+                  {selectedSubUser?.is_subscribed ? 'المستخدم مشترك حالياً (كرمتي بلس)' : 'المستخدم غير مشترك (تظهر له الإعلانات)'}
+                </p>
+                <p className="text-xs text-slate-400">
+                  {selectedSubUser?.is_subscribed
+                    ? `الباقة: ${selectedSubUser.subscription_plan === 'yearly' ? 'سنوية' : selectedSubUser.subscription_plan === 'lifetime' ? 'دائمة' : 'شهرية'} ${
+                        selectedSubUser.subscription_end_date
+                          ? `- ينتهي في ${new Date(selectedSubUser.subscription_end_date).toLocaleDateString('ar-EG')}`
+                          : '- مدى الحياة'
+                      }`
+                    : 'الإعلانات ممكّنة لهذا الحساب'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Plan Selection */}
+          <div className="space-y-2">
+            <label className="block text-slate-300 font-bold">اختر نوع الباقة المراد تعيينها:</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'monthly', name: 'شهري', price: '99 ج.م', defMonths: 1 },
+                { id: 'yearly', name: 'سنوي (وفر 50%)', price: '599 ج.م', defMonths: 12 },
+                { id: 'lifetime', name: 'مدى الحياة', price: 'VIP', defMonths: 0 },
+              ].map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setSubPlan(p.id as any);
+                    setSubDurationMonths(p.defMonths);
+                  }}
+                  className={`p-3 rounded-xl border text-right transition-all ${
+                    subPlan === p.id
+                      ? 'bg-amber-500/15 border-amber-500 text-white shadow-lg shadow-amber-500/10'
+                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <p className="font-bold text-xs text-amber-400">{p.name}</p>
+                  <p className="text-[11px] text-slate-300 mt-1">{p.price}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Duration Selector */}
+          {subPlan !== 'lifetime' && (
+            <div className="space-y-2">
+              <label className="block text-slate-300 font-bold">مدة التفعيل بالشهور:</label>
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  { m: 1, label: 'شهر' },
+                  { m: 2, label: 'شهرين' },
+                  { m: 3, label: '3 شهور' },
+                  { m: 6, label: '6 شهور' },
+                  { m: 12, label: 'سنة' },
+                ].map(d => (
+                  <button
+                    key={d.m}
+                    type="button"
+                    onClick={() => setSubDurationMonths(d.m)}
+                    className={`py-2 px-1 text-center rounded-lg border text-xs font-bold transition-all ${
+                      subDurationMonths === d.m
+                        ? 'bg-brand-600 border-brand-500 text-white'
+                        : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+              <div className="pt-1 flex items-center gap-2">
+                <span className="text-slate-400 text-[11px]">أو أدخل عدد شهور مخصص:</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={subDurationMonths}
+                  onChange={(e) => setSubDurationMonths(Math.max(1, Number(e.target.value)))}
+                  className="w-20 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-white text-center focus:outline-none focus:border-brand-500"
+                />
+                <span className="text-slate-400 text-[11px]">شهر</span>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+            {selectedSubUser?.is_subscribed ? (
+              <button
+                type="button"
+                onClick={() => handleToggleSubscription(false)}
+                disabled={isSubProcessing}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold transition-all"
+              >
+                {isSubProcessing ? 'جارٍ الإلغاء...' : 'إلغاء الاشتراك وإعادة الإعلانات'}
+              </button>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={() => setIsSubModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold"
+              >
+                إغلاق
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleSubscription(true)}
+                disabled={isSubProcessing}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition-all"
+              >
+                <Crown className="w-4 h-4" />
+                <span>{isSubProcessing ? 'جارٍ الحفظ...' : 'تفعيل الاشتراك وإلغاء الإعلانات فورياً'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </Modal>
     </div>
   );

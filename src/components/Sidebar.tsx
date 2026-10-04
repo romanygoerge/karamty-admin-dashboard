@@ -11,11 +11,13 @@ import {
   Cross,
   Sparkles,
   RefreshCw,
-  BookOpen
+  BookOpen,
+  Crown
 } from 'lucide-react';
 
 export type NavItem = 
   | 'overview' 
+  | 'subscriptions'
   | 'users' 
   | 'sunday_school' 
   | 'curriculum'
@@ -31,16 +33,24 @@ interface SidebarProps {
   isSyncing: boolean;
   onRefresh: () => void;
   unreadCount?: number;
+  pendingSubCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentTab,
   onSelectTab,
   isSyncing,
-  onRefresh
+  onRefresh,
+  pendingSubCount
 }) => {
   const menuItems: { id: NavItem; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'overview', label: 'لوحة القيادة والمؤشرات', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { 
+      id: 'subscriptions', 
+      label: 'الاشتراكات والتبرعات', 
+      icon: <Crown className="w-5 h-5 text-amber-400" />,
+      badge: pendingSubCount && pendingSubCount > 0 ? String(pendingSubCount) : undefined
+    },
     { id: 'users', label: 'الخدام والمستخدمين', icon: <Users className="w-5 h-5" /> },
     { id: 'sunday_school', label: 'مدارس الأحد والغياب', icon: <GraduationCap className="w-5 h-5" /> },
     { id: 'curriculum', label: 'مناهج المراحل (PDF)', icon: <BookOpen className="w-5 h-5" />, badge: 'PDF' },
