@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { OverviewView } from './views/OverviewView';
 import { UsersView } from './views/UsersView';
 import { SundaySchoolView } from './views/SundaySchoolView';
+import { CurriculumView } from './views/CurriculumView';
 import { CommunityView } from './views/CommunityView';
 import { InventoryView } from './views/InventoryView';
 import { FinanceView } from './views/FinanceView';
@@ -99,6 +100,10 @@ export function App() {
       title: 'مدارس الأحد وكشف الحضور',
       subtitle: 'سجلات المخدومين والمراحل العمرية وتسجيل الحضور والغياب الأسبوعي'
     },
+    curriculum: {
+      title: 'إدارة مناهج مدارس الأحد (PDF)',
+      subtitle: 'رفع وتخصيص كتب وملفات المناهج لكل مرحلة عمرية ومزامنتها لحظياً مع تطبيق الموبايل'
+    },
     community: {
       title: 'مجتمع وتفاعل إكسبلور',
       subtitle: 'متابعة منشورات وتفاعل المستخدمين مع إمكانية نشر الإعلانات الرسمية'
@@ -165,6 +170,10 @@ export function App() {
               students={students}
               onRefresh={fetchAllData}
             />
+          )}
+
+          {currentTab === 'curriculum' && (
+            <CurriculumView />
           )}
 
           {currentTab === 'community' && (

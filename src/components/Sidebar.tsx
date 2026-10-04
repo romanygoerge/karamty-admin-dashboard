@@ -10,13 +10,15 @@ import {
   BellRing,
   Cross,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  BookOpen
 } from 'lucide-react';
 
 export type NavItem = 
   | 'overview' 
   | 'users' 
   | 'sunday_school' 
+  | 'curriculum'
   | 'community' 
   | 'inventory' 
   | 'finance' 
@@ -41,6 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'overview', label: 'لوحة القيادة والمؤشرات', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'users', label: 'الخدام والمستخدمين', icon: <Users className="w-5 h-5" /> },
     { id: 'sunday_school', label: 'مدارس الأحد والغياب', icon: <GraduationCap className="w-5 h-5" /> },
+    { id: 'curriculum', label: 'مناهج المراحل (PDF)', icon: <BookOpen className="w-5 h-5" />, badge: 'PDF' },
     { id: 'community', label: 'مجتمع إكسبلور والتفاعل', icon: <MessageSquare className="w-5 h-5" /> },
     { id: 'inventory', label: 'المخزن وعُهد الكنيسة', icon: <Package className="w-5 h-5" /> },
     { id: 'finance', label: 'المالية والميزانية', icon: <Wallet className="w-5 h-5" /> },

@@ -203,16 +203,26 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
         .getPublicUrl(filePath);
 
       const publicUrl = publicUrlData.publicUrl;
+      const pdfTitle = stageCurricula[selectedStage]?.pdf_title?.trim() || `منهج ${currentStageObj.name} - مدارس الأحد`;
+
+      // Auto-save immediately to database
+      await supabase
+        .from('sunday_school_stages')
+        .update({
+          pdf_url: publicUrl,
+          pdf_title: pdfTitle,
+        })
+        .eq('stage_code', selectedStage);
 
       setStageCurricula((prev) => ({
         ...prev,
         [selectedStage]: {
-          ...(prev[selectedStage] || { pdf_title: `منهج ${currentStageObj.name} - مدارس الأحد` }),
+          ...(prev[selectedStage] || { pdf_title: pdfTitle }),
           pdf_url: publicUrl,
         },
       }));
 
-      setStatusMessage('تم رفع ملف الـ PDF بنجاح! اضغط على "حفظ منهج المرحلة" لحفظه في التطبيق.');
+      setStatusMessage(`تم رفع وتفعيل منهج (${currentStageObj.name}) بنجاح! تم حفظه في التطبيق فوراً ⚡`);
       setTimeout(() => setStatusMessage(null), 4000);
     } catch (err: any) {
       alert('خطأ أثناء رفع الملف: ' + err.message);
