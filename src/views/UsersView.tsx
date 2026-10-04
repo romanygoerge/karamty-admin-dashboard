@@ -11,7 +11,9 @@ import {
   Mail, 
   CheckCircle, 
   Save,
-  Search
+  Search,
+  Flame,
+  BookOpen
 } from 'lucide-react';
 import { Profile } from '../types';
 import { Modal } from '../components/Modal';
@@ -42,6 +44,8 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
   // Edit User Form State
   const [editRole, setEditRole] = useState('');
   const [editPoints, setEditPoints] = useState(0);
+  const [editStreakDays, setEditStreakDays] = useState(0);
+  const [editChaptersRead, setEditChaptersRead] = useState(0);
   const [editChurch, setEditChurch] = useState('');
   const [editPhone, setEditPhone] = useState('');
 
@@ -66,6 +70,8 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
     setSelectedUser(user);
     setEditRole(user.role || 'مستخدم');
     setEditPoints(user.points || 0);
+    setEditStreakDays(user.streak_days || 0);
+    setEditChaptersRead(user.chapters_read || 0);
     setEditChurch(user.church || '');
     setEditPhone(user.phone || '');
     setIsEditModalOpen(true);
@@ -80,6 +86,8 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
         .update({
           role: editRole,
           points: editPoints,
+          streak_days: editStreakDays,
+          chapters_read: editChaptersRead,
           church: editChurch,
           phone: editPhone,
           updated_at: new Date().toISOString()
@@ -151,14 +159,16 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
   };
 
   const exportToCSV = () => {
-    const headers = ['الاسم بالكامل', 'البريد الإلكتروني', 'الهاتف', 'الدور / الرتبة', 'الكنيسة', 'رصيد النقاط'];
+    const headers = ['الاسم بالكامل', 'البريد الإلكتروني', 'الهاتف', 'الدور / الرتبة', 'الكنيسة', 'رصيد النقاط', 'أيام متتالية', 'أصحاحات مقروءة'];
     const rows = filteredProfiles.map(p => [
       `"${p.full_name || ''}"`,
       `"${p.email || ''}"`,
       `"${p.phone || ''}"`,
       `"${p.role || ''}"`,
       `"${p.church || ''}"`,
-      p.points || 0
+      p.points || 0,
+      p.streak_days || 0,
+      p.chapters_read || 0
     ]);
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
@@ -254,6 +264,8 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
                 <th className="py-3.5 px-4 font-semibold">الكنيسة / الخدمة</th>
                 <th className="py-3.5 px-4 font-semibold">الرتبة / الدور</th>
                 <th className="py-3.5 px-4 font-semibold">رصيد النقاط</th>
+                <th className="py-3.5 px-4 font-semibold">أيام متتالية</th>
+                <th className="py-3.5 px-4 font-semibold">أصحاحات مقروءة</th>
                 <th className="py-3.5 px-4 font-semibold">بيانات الاتصال</th>
                 <th className="py-3.5 px-4 font-semibold text-center">إجراءات</th>
               </tr>
@@ -289,7 +301,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
                     <td className="py-3 px-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
                         isServant 
-                          ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
+                            ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
                           : 'bg-slate-800 text-slate-300 border border-slate-700'
                       }`}>
                         {p.role || 'عضو'}
@@ -300,6 +312,20 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
                       <div className="flex items-center gap-1 text-gold-400 font-bold">
                         <Coins className="w-3.5 h-3.5" />
                         <span>{p.points || 0}</span>
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-1 text-amber-500 font-bold">
+                        <Flame className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{p.streak_days || 0} يوم</span>
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-1 text-purple-400 font-bold">
+                        <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+                        <span>{p.chapters_read || 0}</span>
                       </div>
                     </td>
 
@@ -342,7 +368,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
 
               {filteredProfiles.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500 text-xs">
+                  <td colSpan={8} className="py-8 text-center text-slate-500 text-xs">
                     لم يتم العثور على أي مستخدمين مطابقين
                   </td>
                 </tr>
@@ -383,6 +409,27 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
               onChange={(e) => setEditPoints(Number(e.target.value))}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-slate-400 font-semibold mb-1">أيام متتالية (Streak)</label>
+              <input
+                type="number"
+                value={editStreakDays}
+                onChange={(e) => setEditStreakDays(Number(e.target.value))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500"
+              />
+            </div>
+            <div>
+              <label className="block text-slate-400 font-semibold mb-1">أصحاحات مقروءة</label>
+              <input
+                type="number"
+                value={editChaptersRead}
+                onChange={(e) => setEditChaptersRead(Number(e.target.value))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500"
+              />
+            </div>
           </div>
 
           <div>

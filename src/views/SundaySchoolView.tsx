@@ -9,9 +9,14 @@ import {
   Calendar, 
   Phone, 
   Save, 
-  Search
+  Search,
+  FileText,
+  UploadCloud,
+  ExternalLink,
+  Eye,
+  BookOpen
 } from 'lucide-react';
-import { SundaySchoolStudent, AttendanceRecord } from '../types';
+import { SundaySchoolStudent } from '../types';
 import { Modal } from '../components/Modal';
 import { supabase } from '../lib/supabase';
 
@@ -21,15 +26,17 @@ interface SundaySchoolViewProps {
 }
 
 const STAGES = [
-  { id: 'nursery', name: 'مرحلة حضانة' },
-  { id: 'primary', name: 'مرحلة ابتدائي' },
-  { id: 'preparatory', name: 'مرحلة إعدادي' },
-  { id: 'secondary', name: 'مرحلة ثانوي' },
-  { id: 'university', name: 'جامعيين وخريجين' },
+  { id: 'kg', name: 'مرحلة حضانة', legacyIds: ['nursery'] },
+  { id: 'prim_1_2', name: 'أولى وثانية ابتدائي', legacyIds: ['primary'] },
+  { id: 'prim_3_4', name: 'ثالثة ورابعة ابتدائي', legacyIds: [] },
+  { id: 'prim_5_6', name: 'خامسة وسادسة ابتدائي', legacyIds: [] },
+  { id: 'prep_sec', name: 'إعدادي وثانوي', legacyIds: ['preparatory', 'secondary'] },
+  { id: 'uni', name: 'جامعة وخريجين', legacyIds: ['university'] },
 ];
 
 export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, onRefresh }) => {
-  const [selectedStage, setSelectedStage] = useState('primary');
+  const [selectedStage, setSelectedStage] = useState('prim_1_2');
+  const [activeTab, setActiveTab] = useState<'attendance' | 'curriculum'>('attendance');
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     return today.toISOString().slice(0, 10);
@@ -39,6 +46,11 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [isSavingAttendance, setIsSavingAttendance] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Curriculum PDF State
+  const [stageCurricula, setStageCurricula] = useState<Record<string, { pdf_url: string; pdf_title: string; stage_id?: string }>>({});
+  const [isSavingCurriculum, setIsSavingCurriculum] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
 
   // Modals
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
@@ -51,6 +63,39 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
   const [studentParentPhone, setStudentParentPhone] = useState('');
   const [studentFather, setStudentFather] = useState('');
   const [studentNotes, setStudentNotes] = useState('');
+
+  // Fetch stage curricula metadata from Supabase
+  useEffect(() => {
+    async function fetchCurricula() {
+      try {
+        const { data, error } = await supabase
+          .from('sunday_school_stages')
+          .select('id, stage_code, name, pdf_url, pdf_title');
+
+        if (error) {
+          console.error('Error fetching curricula:', error);
+          return;
+        }
+
+        if (data) {
+          const map: Record<string, { pdf_url: string; pdf_title: string; stage_id?: string }> = {};
+          data.forEach((row: any) => {
+            const code = row.stage_code || row.id;
+            map[code] = {
+              pdf_url: row.pdf_url || '',
+              pdf_title: row.pdf_title || '',
+              stage_id: row.id,
+            };
+          });
+          setStageCurricula(map);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    fetchCurricula();
+  }, []);
 
   // Fetch attendance records for the selected date
   useEffect(() => {
@@ -82,9 +127,14 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
     fetchAttendance();
   }, [selectedDate]);
 
-  const stageStudents = students.filter(
-    (s) => s.stage_id === selectedStage || (!s.stage_id && selectedStage === 'primary')
-  );
+  const currentStageObj = STAGES.find((s) => s.id === selectedStage) || STAGES[0];
+
+  const stageStudents = students.filter((s) => {
+    if (s.stage_id === selectedStage) return true;
+    if (currentStageObj.legacyIds?.includes(s.stage_id)) return true;
+    if (!s.stage_id && selectedStage === 'prim_1_2') return true;
+    return false;
+  });
 
   const filteredStudents = stageStudents.filter(
     (s) => s.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -122,6 +172,78 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
       alert('خطأ أثناء حفظ الحضور: ' + err.message);
     } finally {
       setIsSavingAttendance(false);
+    }
+  };
+
+  const handleUploadPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      alert('يرجى اختيار ملف PDF صالح');
+      return;
+    }
+
+    setUploadingPdf(true);
+    try {
+      const fileName = `${selectedStage}_${Date.now()}.pdf`;
+      const filePath = `curricula/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('curriculum_pdfs')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('curriculum_pdfs')
+        .getPublicUrl(filePath);
+
+      const publicUrl = publicUrlData.publicUrl;
+
+      setStageCurricula((prev) => ({
+        ...prev,
+        [selectedStage]: {
+          ...(prev[selectedStage] || { pdf_title: `منهج ${currentStageObj.name} - مدارس الأحد` }),
+          pdf_url: publicUrl,
+        },
+      }));
+
+      setStatusMessage('تم رفع ملف الـ PDF بنجاح! اضغط على "حفظ منهج المرحلة" لحفظه في التطبيق.');
+      setTimeout(() => setStatusMessage(null), 4000);
+    } catch (err: any) {
+      alert('خطأ أثناء رفع الملف: ' + err.message);
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
+  const handleSaveCurriculum = async () => {
+    setIsSavingCurriculum(true);
+    try {
+      const cur = stageCurricula[selectedStage];
+      const pdfUrl = cur?.pdf_url?.trim() || '';
+      const pdfTitle = cur?.pdf_title?.trim() || `منهج ${currentStageObj.name} - مدارس الأحد`;
+
+      const { error } = await supabase
+        .from('sunday_school_stages')
+        .update({
+          pdf_url: pdfUrl,
+          pdf_title: pdfTitle,
+        })
+        .eq('stage_code', selectedStage);
+
+      if (error) throw error;
+
+      setStatusMessage(`تم حفظ وتحديث منهج (${currentStageObj.name}) بنجاح! سيظهر في تطبيق الموبايل فوراً.`);
+      setTimeout(() => setStatusMessage(null), 4000);
+    } catch (err: any) {
+      alert('خطأ أثناء حفظ المنهج: ' + err.message);
+    } finally {
+      setIsSavingCurriculum(false);
     }
   };
 
@@ -224,8 +346,8 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
             <GraduationCap className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-white">مدارس الأحد وكشف الحضور الأسبوعي</h3>
-            <p className="text-xs text-slate-400">تسجيل ومتابعة حضور المخدومين وإدارة بياناتهم وإمكانية التعديل والحذف</p>
+            <h3 className="text-base font-bold text-white">مدارس الأحد، المناهج الدراسية، وكشف الحضور</h3>
+            <p className="text-xs text-slate-400">إدارة ملفات مناهج PDF لكل مرحلة عمرية، ومتابعة حضور المخدومين وإدارة بياناتهم</p>
           </div>
         </div>
 
@@ -250,19 +372,25 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
       {/* Stage Selector Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {STAGES.map((stg) => {
-          const count = students.filter((s) => s.stage_id === stg.id).length;
+          const count = students.filter(
+            (s) => s.stage_id === stg.id || stg.legacyIds.includes(s.stage_id)
+          ).length;
           const isActive = selectedStage === stg.id;
+          const hasPdf = !!stageCurricula[stg.id]?.pdf_url;
           return (
             <button
               key={stg.id}
               onClick={() => setSelectedStage(stg.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
                 isActive
                   ? 'bg-gold-500 text-slate-950 shadow-md shadow-gold-500/20'
                   : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white border border-slate-800'
               }`}
             >
               <span>{stg.name}</span>
+              {hasPdf && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="تم رفع ملف PDF"></span>
+              )}
               <span className={`px-2 py-0.5 rounded-full text-[10px] ${
                 isActive ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-800 text-slate-400'
               }`}>
@@ -273,166 +401,335 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
         })}
       </div>
 
-      {/* Control Bar: Date picker & Save Attendance */}
-      <div className="glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs text-slate-300">
-            <Calendar className="w-4 h-4 text-brand-400" />
-            <span>تاريخ الحصة:</span>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
-            />
-          </div>
+      {/* Sub-Tab Navigation: Attendance vs Curriculum PDF */}
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+        <button
+          onClick={() => setActiveTab('attendance')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'attendance'
+              ? 'bg-brand-600 text-white shadow-md shadow-brand-600/25'
+              : 'text-slate-400 hover:text-white bg-slate-900/60 border border-slate-800'
+          }`}
+        >
+          <Check className="w-4 h-4" />
+          <span>كشف الحضور الأسبوعي</span>
+        </button>
 
-          <div className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs flex items-center gap-2">
-            <span className="text-slate-400">نسبة الحضور:</span>
-            <span className="font-bold text-gold-400">{attendanceRate}%</span>
-            <span className="text-slate-500">({presentCount} من {stageStudents.length})</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-          <div className="relative w-full md:w-64">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="بحث بالاسم أو الهاتف..."
-              className="w-full bg-slate-900 text-xs text-slate-200 placeholder-slate-500 rounded-xl pr-9 pl-3 py-2 border border-slate-800 focus:outline-none focus:border-brand-500"
-            />
-          </div>
-
-          <button
-            onClick={handleSaveAttendance}
-            disabled={isSavingAttendance || loadingAttendance || stageStudents.length === 0}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 whitespace-nowrap transition-all"
-          >
-            <Save className="w-4 h-4" />
-            <span>{isSavingAttendance ? 'جارٍ الحفظ...' : 'حفظ كشف الحضور'}</span>
-          </button>
-        </div>
+        <button
+          onClick={() => setActiveTab('curriculum')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'curriculum'
+              ? 'bg-brand-600 text-white shadow-md shadow-brand-600/25'
+              : 'text-slate-400 hover:text-white bg-slate-900/60 border border-slate-800'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>منهج المرحلة (ملف PDF)</span>
+          {stageCurricula[selectedStage]?.pdf_url && (
+            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+          )}
+        </button>
       </div>
 
-      {/* Students & Attendance Table */}
-      <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
-        <div className="overflow-x-auto">
-          <table className="w-full text-right text-xs">
-            <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
-              <tr>
-                <th className="py-3.5 px-4 font-semibold text-center w-16">حاضر؟</th>
-                <th className="py-3.5 px-4 font-semibold">اسم الطالب / المخدوم</th>
-                <th className="py-3.5 px-4 font-semibold">هاتف الطالب</th>
-                <th className="py-3.5 px-4 font-semibold">هاتف ولي الأمر</th>
-                <th className="py-3.5 px-4 font-semibold">أب الاعتراف</th>
-                <th className="py-3.5 px-4 font-semibold">ملاحظات</th>
-                <th className="py-3.5 px-4 font-semibold text-center">تعديل / حذف</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {filteredStudents.map((student) => {
-                const isPresent = !!attendanceMap[student.id];
-                return (
-                  <tr
-                    key={student.id}
-                    className={`transition-colors ${
-                      isPresent ? 'bg-emerald-950/20 hover:bg-emerald-950/30' : 'hover:bg-slate-800/30'
-                    }`}
-                  >
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleToggleAttendance(student.id)}
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
-                          isPresent
-                            ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
-                            : 'bg-slate-800 text-slate-500 hover:border-slate-600 border border-slate-700'
+      {/* Tab Content 1: Curriculum PDF Management */}
+      {activeTab === 'curriculum' ? (
+        <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-brand-500/20 text-brand-400">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>منهج {currentStageObj.name}</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 font-semibold">
+                    ملف PDF
+                  </span>
+                </h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  ارفع ملف الـ PDF المخصص لهذه المرحلة العمرية أو ضع رابطه المباشر ليعرض في التطبيق بشكل احترافي
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              {stageCurricula[selectedStage]?.pdf_url && (
+                <a
+                  href={stageCurricula[selectedStage].pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-all border border-slate-700"
+                >
+                  <Eye className="w-4 h-4 text-brand-400" />
+                  <span>معاينة الـ PDF</span>
+                  <ExternalLink className="w-3 h-3 text-slate-500" />
+                </a>
+              )}
+
+              <button
+                onClick={handleSaveCurriculum}
+                disabled={isSavingCurriculum || uploadingPdf}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all"
+              >
+                <Save className="w-4 h-4" />
+                <span>{isSavingCurriculum ? 'جارٍ الحفظ...' : 'حفظ منهج المرحلة'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Form Inputs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                عنوان أو وصف المنهج
+              </label>
+              <input
+                type="text"
+                value={stageCurricula[selectedStage]?.pdf_title ?? `منهج ${currentStageObj.name} - مدارس الأحد`}
+                onChange={(e) =>
+                  setStageCurricula((prev) => ({
+                    ...prev,
+                    [selectedStage]: {
+                      ...(prev[selectedStage] || { pdf_url: '', stage_id: '' }),
+                      pdf_title: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="مثال: منهج أولى وثانية ابتدائي - طقس وعقيدة"
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">يظهر كعنوان رئيسي في أعلى شاشة المنهج بتطبيق الموبايل</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                رابط ملف الـ PDF المباشر (URL)
+              </label>
+              <input
+                type="url"
+                value={stageCurricula[selectedStage]?.pdf_url ?? ''}
+                onChange={(e) =>
+                  setStageCurricula((prev) => ({
+                    ...prev,
+                    [selectedStage]: {
+                      ...(prev[selectedStage] || { pdf_title: `منهج ${currentStageObj.name}`, stage_id: '' }),
+                      pdf_url: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="https://.../curriculum.pdf"
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">يمكنك إدخال رابط خارجي مباشر أو رفع ملف من جهازك أدناه</p>
+            </div>
+          </div>
+
+          {/* File Upload Box */}
+          <div className="p-6 rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 flex flex-col items-center justify-center text-center space-y-3">
+            <div className="p-3.5 rounded-full bg-slate-800 text-brand-400">
+              <UploadCloud className="w-7 h-7" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-white">رفع ملف PDF جديد من جهازك لمرحلة ({currentStageObj.name})</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">سيتم رفع الملف إلى سحابة التخزين وتوليد الرابط وحفظه تلقائياً</p>
+            </div>
+
+            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-md shadow-brand-600/20 transition-all">
+              <FileText className="w-4 h-4" />
+              <span>{uploadingPdf ? 'جارٍ رفع ملف الـ PDF...' : 'اختر ملف PDF من جهازك'}</span>
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                disabled={uploadingPdf}
+                onChange={handleUploadPdf}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {/* Live Status indicator */}
+          <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 text-xs text-slate-400 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${stageCurricula[selectedStage]?.pdf_url ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+              <span>
+                حالة منهج المرحلة في التطبيق:{' '}
+                <strong className={stageCurricula[selectedStage]?.pdf_url ? 'text-emerald-400' : 'text-amber-400'}>
+                  {stageCurricula[selectedStage]?.pdf_url ? 'مرفوع ويعمل في التطبيق ⚡' : 'لم يتم تحديد ملف PDF بعد'}
+                </strong>
+              </span>
+            </div>
+            {stageCurricula[selectedStage]?.pdf_url && (
+              <span className="text-[11px] text-slate-500 truncate max-w-[320px]">
+                {stageCurricula[selectedStage].pdf_url}
+              </span>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Tab Content 2: Weekly Attendance */
+        <>
+          {/* Control Bar: Date picker & Save Attendance */}
+          <div className="glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs text-slate-300">
+                <Calendar className="w-4 h-4 text-brand-400" />
+                <span>تاريخ الحصة:</span>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
+                />
+              </div>
+
+              <div className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs flex items-center gap-2">
+                <span className="text-slate-400">نسبة الحضور:</span>
+                <span className="font-bold text-gold-400">{attendanceRate}%</span>
+                <span className="text-slate-500">({presentCount} من {stageStudents.length})</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+              <div className="relative w-full md:w-64">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="بحث بالاسم أو الهاتف..."
+                  className="w-full bg-slate-900 text-xs text-slate-200 placeholder-slate-500 rounded-xl pr-9 pl-3 py-2 border border-slate-800 focus:outline-none focus:border-brand-500"
+                />
+              </div>
+
+              <button
+                onClick={handleSaveAttendance}
+                disabled={isSavingAttendance || loadingAttendance || stageStudents.length === 0}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 whitespace-nowrap transition-all"
+              >
+                <Save className="w-4 h-4" />
+                <span>{isSavingAttendance ? 'جارٍ الحفظ...' : 'حفظ كشف الحضور'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Students & Attendance Table */}
+          <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
+                  <tr>
+                    <th className="py-3.5 px-4 font-semibold text-center w-16">حاضر؟</th>
+                    <th className="py-3.5 px-4 font-semibold">اسم الطالب / المخدوم</th>
+                    <th className="py-3.5 px-4 font-semibold">هاتف الطالب</th>
+                    <th className="py-3.5 px-4 font-semibold">هاتف ولي الأمر</th>
+                    <th className="py-3.5 px-4 font-semibold">أب الاعتراف</th>
+                    <th className="py-3.5 px-4 font-semibold">ملاحظات</th>
+                    <th className="py-3.5 px-4 font-semibold text-center">تعديل / حذف</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filteredStudents.map((student) => {
+                    const isPresent = !!attendanceMap[student.id];
+                    return (
+                      <tr
+                        key={student.id}
+                        className={`transition-colors ${
+                          isPresent ? 'bg-emerald-950/20 hover:bg-emerald-950/30' : 'hover:bg-slate-800/30'
                         }`}
                       >
-                        {isPresent ? <Check className="w-4 h-4" /> : <X className="w-3.5 h-3.5" />}
-                      </button>
-                    </td>
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            onClick={() => handleToggleAttendance(student.id)}
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                              isPresent
+                                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
+                                : 'bg-slate-800 text-slate-500 hover:border-slate-600 border border-slate-700'
+                            }`}
+                          >
+                            {isPresent ? <Check className="w-4 h-4" /> : <X className="w-3.5 h-3.5" />}
+                          </button>
+                        </td>
 
-                    <td className="py-3 px-4 font-bold text-white">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[11px] font-bold text-gold-400">
-                          {student.full_name?.charAt(0) || 'ط'}
-                        </div>
-                        <span>{student.full_name}</span>
-                      </div>
-                    </td>
+                        <td className="py-3 px-4 font-bold text-white">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[11px] font-bold text-gold-400">
+                              {student.full_name?.charAt(0) || 'ط'}
+                            </div>
+                            <span>{student.full_name}</span>
+                          </div>
+                        </td>
 
-                    <td className="py-3 px-4 text-slate-300">
-                      {student.phone ? (
-                        <div className="flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-slate-500" />
-                          <span>{student.phone}</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-600">-</span>
-                      )}
-                    </td>
+                        <td className="py-3 px-4 text-slate-300">
+                          {student.phone ? (
+                            <div className="flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-slate-500" />
+                              <span>{student.phone}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-600">-</span>
+                          )}
+                        </td>
 
-                    <td className="py-3 px-4 text-slate-300">
-                      {student.parent_phone ? (
-                        <div className="flex items-center gap-1 text-brand-400">
-                          <Phone className="w-3 h-3 text-brand-500" />
-                          <span>{student.parent_phone}</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-600">-</span>
-                      )}
-                    </td>
+                        <td className="py-3 px-4 text-slate-300">
+                          {student.parent_phone ? (
+                            <div className="flex items-center gap-1 text-brand-400">
+                              <Phone className="w-3 h-3 text-brand-500" />
+                              <span>{student.parent_phone}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-600">-</span>
+                          )}
+                        </td>
 
-                    <td className="py-3 px-4 text-slate-400">
-                      {student.spiritual_father || '-'}
-                    </td>
+                        <td className="py-3 px-4 text-slate-400">
+                          {student.spiritual_father || '-'}
+                        </td>
 
-                    <td className="py-3 px-4 text-slate-400 max-w-[200px] truncate">
-                      {student.notes || '-'}
-                    </td>
+                        <td className="py-3 px-4 text-slate-400 max-w-[200px] truncate">
+                          {student.notes || '-'}
+                        </td>
 
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => handleOpenEdit(student)}
-                          title="تعديل اسم أو بيانات الطالب"
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-brand-600 text-slate-300 hover:text-white transition-all"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteStudent(student.id, student.full_name)}
-                          title="حذف الطالب من الكشف"
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => handleOpenEdit(student)}
+                              title="تعديل اسم أو بيانات الطالب"
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-brand-600 text-slate-300 hover:text-white transition-all"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteStudent(student.id, student.full_name)}
+                              title="حذف الطالب من الكشف"
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
 
-              {filteredStudents.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500 text-xs">
-                    لا يوجد مخدومين مسجلين في هذه المرحلة حالياً. اضغط على "إضافة مخدوم جديد" للبدء.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  {filteredStudents.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-500 text-xs">
+                        لا يوجد مخدومين مسجلين في هذه المرحلة حالياً. اضغط على "إضافة مخدوم جديد" للبدء.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Add Student Modal */}
       <Modal
         isOpen={isAddStudentOpen}
         onClose={() => setIsAddStudentOpen(false)}
-        title={`إضافة مخدوم إلى (${STAGES.find((s) => s.id === selectedStage)?.name})`}
+        title={`إضافة مخدوم إلى (${currentStageObj.name})`}
       >
         <form onSubmit={handleAddStudent} className="space-y-4 text-xs">
           <div>
@@ -454,7 +751,7 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
                 type="text"
                 value={studentPhone}
                 onChange={(e) => setStudentPhone(e.target.value)}
-                placeholder="012XXXXXXXX"
+                placeholder="01xxxxxxxxx"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500"
               />
             </div>
@@ -465,7 +762,7 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
                 type="text"
                 value={studentParentPhone}
                 onChange={(e) => setStudentParentPhone(e.target.value)}
-                placeholder="010XXXXXXXX"
+                placeholder="01xxxxxxxxx"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500"
               />
             </div>
@@ -477,18 +774,18 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
               type="text"
               value={studentFather}
               onChange={(e) => setStudentFather(e.target.value)}
-              placeholder="أبونا بولا"
+              placeholder="أبونا ..."
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500"
             />
           </div>
 
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">ملاحظات خاصة</label>
+            <label className="block text-slate-400 font-semibold mb-1">ملاحظات</label>
             <textarea
               rows={2}
               value={studentNotes}
               onChange={(e) => setStudentNotes(e.target.value)}
-              placeholder="ملاحظات المتابعة والافتقاد..."
+              placeholder="أي ملاحظات حول المخدوم أو العنوان..."
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500"
             />
           </div>

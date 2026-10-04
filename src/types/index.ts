@@ -10,6 +10,9 @@ export interface Profile {
   avatar_url?: string;
   bio?: string;
   points?: number;
+  streak_days?: number;
+  chapters_read?: number;
+  last_active_date?: string;
   is_profile_complete?: boolean;
   created_at?: string;
   updated_at?: string;
