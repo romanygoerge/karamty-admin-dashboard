@@ -50,7 +50,6 @@ export default async function handler(req, res) {
         ...data,
         sent_at: new Date().toISOString()
       },
-      android_channel_id: 'karamty_general',
       small_icon: 'ic_launcher'
     };
 
