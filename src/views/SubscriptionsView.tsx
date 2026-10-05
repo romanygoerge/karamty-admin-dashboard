@@ -14,7 +14,9 @@ import {
   Calendar,
   AlertCircle,
   Copy,
-  Check
+  Check,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { supabase, SUPABASE_URL } from '../lib/supabase';
 import { PaymentRequest } from '../types';
@@ -183,6 +185,40 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
       }
     } catch (err: any) {
       alert(`خطأ: ${err.message}`);
+    }
+  };
+
+  // Handle Cancel / Delete Subscription
+  const handleCancelSubscription = async (req: PaymentRequest) => {
+    if (!window.confirm(`هل أنت متأكد من رغبتك في إلغاء وحذف اشتراك المستخدم (${req.user_name}) وإعادة إظهار الإعلانات له في التطبيق فوراً؟`)) {
+      return;
+    }
+
+    try {
+      setIsSubmittingActivation(true);
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/handle-payment-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'cancel_subscription',
+          request_id: req.id,
+          user_id: req.user_id,
+          status: 'cancelled',
+          admin_notes: 'تم إلغاء وحذف الاشتراك من لوحة التحكم',
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setActivationTarget(null);
+        await fetchRequests();
+      } else {
+        alert(data.error || 'حدث خطأ أثناء إلغاء الاشتراك');
+      }
+    } catch (err: any) {
+      alert(`خطأ: ${err.message}`);
+    } finally {
+      setIsSubmittingActivation(false);
     }
   };
 
@@ -534,18 +570,30 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-center gap-1 text-xs text-slate-500">
+                          <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500">
                             {isSub && (
-                              <button
-                                onClick={() => {
-                                  setActivationTarget(req);
-                                  setSelectedPlan(req.plan === 'yearly' ? 'yearly' : 'monthly');
-                                  setSelectedMonths(req.plan === 'yearly' ? 12 : 1);
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-purple-900/40 text-purple-300 hover:text-purple-200 border border-purple-500/30"
-                              >
-                                تعديل المدة
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setActivationTarget(req);
+                                    setSelectedPlan(req.plan === 'yearly' ? 'yearly' : 'monthly');
+                                    setSelectedMonths(req.plan === 'yearly' ? 12 : 1);
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-purple-900/40 text-purple-300 hover:text-purple-200 border border-purple-500/30 flex items-center gap-1 transition-all"
+                                  title="تعديل باقة أو مدة الاشتراك"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>تعديل</span>
+                                </button>
+                                <button
+                                  onClick={() => handleCancelSubscription(req)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 flex items-center gap-1 transition-all"
+                                  title="إلغاء وحذف الاشتراك وإعادة تفعيل الإعلانات"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>إلغاء / حذف</span>
+                                </button>
+                              </>
                             )}
                           </div>
                         )}
@@ -664,22 +712,42 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 mt-6">
-              <button
-                type="button"
-                onClick={() => setActivationTarget(null)}
-                className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium"
-              >
-                إلغاء
-              </button>
-              <button
-                type="button"
-                disabled={isSubmittingActivation}
-                onClick={handleConfirmActivation}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center gap-2"
-              >
-                {isSubmittingActivation ? 'جارٍ التفعيل...' : 'تأكيد وتفعيل الاشتراك الآن'}
-              </button>
+            <div className="flex items-center justify-between gap-3 mt-6">
+              {activationTarget.status === 'approved' ? (
+                <button
+                  type="button"
+                  disabled={isSubmittingActivation}
+                  onClick={() => handleCancelSubscription(activationTarget)}
+                  className="px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold transition-all flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>إلغاء وحذف الاشتراك</span>
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActivationTarget(null)}
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmittingActivation}
+                  onClick={handleConfirmActivation}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSubmittingActivation
+                    ? 'جارٍ الحفظ...'
+                    : activationTarget.status === 'approved'
+                    ? 'حفظ تعديل الاشتراك'
+                    : 'تأكيد وتفعيل الاشتراك الآن'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
