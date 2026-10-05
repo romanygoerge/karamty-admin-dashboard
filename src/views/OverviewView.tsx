@@ -42,31 +42,55 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   budget,
   onNavigate
 }) => {
+  const isRejected = (b: BudgetItem) => {
+    try {
+      const parsed = JSON.parse(b.notes || '{}');
+      return parsed.status === 'rejected' || parsed.status === 'cancelled';
+    } catch (_) {
+      return false;
+    }
+  };
+
+  const validBudget = budget.filter(b => !isRejected(b));
+  const totalIncome = validBudget.filter(b => b.type === 'income').reduce((acc, b) => acc + Number(b.amount || 0), 0);
+  const totalExpense = validBudget.filter(b => b.type === 'expense').reduce((acc, b) => acc + Number(b.amount || 0), 0);
+  const netBalance = totalIncome - totalExpense;
+
   const servantsCount = profiles.filter(p => p.role?.includes('خادم') || p.role?.includes('أمين') || p.role?.includes('servant') || p.role === 'admin').length;
+  const membersCount = Math.max(0, profiles.length - servantsCount);
+  const studentsCount = students.length;
+
   const totalLikes = posts.reduce((acc, p) => acc + (p.likes_count || 0), 0);
   const totalComments = posts.reduce((acc, p) => acc + (p.comments_count || 0), 0);
   const totalInventoryCount = inventory.reduce((acc, i) => acc + (i.total_quantity || 0), 0);
-  
-  const totalIncome = budget.filter(b => b.type === 'income').reduce((acc, b) => acc + Number(b.amount || 0), 0);
-  const totalExpense = budget.filter(b => b.type === 'expense').reduce((acc, b) => acc + Number(b.amount || 0), 0);
-  const netBalance = totalIncome - totalExpense;
 
-  // Chart data: Attendance & Growth mockup based on current real totals
-  const activityData = [
-    { name: 'السبت', users: Math.max(1, Math.round(profiles.length * 0.4)), posts: Math.max(1, Math.round(posts.length * 0.3)), attendance: Math.max(1, Math.round(students.length * 0.6)) },
-    { name: 'الأحد', users: Math.max(2, Math.round(profiles.length * 0.9)), posts: Math.max(2, Math.round(posts.length * 0.8)), attendance: Math.max(3, Math.round(students.length * 0.95)) },
-    { name: 'الإثنين', users: Math.max(1, Math.round(profiles.length * 0.5)), posts: Math.max(1, Math.round(posts.length * 0.4)), attendance: Math.max(1, Math.round(students.length * 0.3)) },
-    { name: 'الثلاثاء', users: Math.max(1, Math.round(profiles.length * 0.6)), posts: Math.max(1, Math.round(posts.length * 0.5)), attendance: Math.max(1, Math.round(students.length * 0.4)) },
-    { name: 'الأربعاء', users: Math.max(1, Math.round(profiles.length * 0.7)), posts: Math.max(1, Math.round(posts.length * 0.6)), attendance: Math.max(2, Math.round(students.length * 0.5)) },
-    { name: 'الخميس', users: Math.max(2, Math.round(profiles.length * 0.8)), posts: Math.max(2, Math.round(posts.length * 0.7)), attendance: Math.max(2, Math.round(students.length * 0.7)) },
-    { name: 'الجمعة', users: Math.max(3, profiles.length), posts: Math.max(2, posts.length), attendance: Math.max(3, students.length) },
+  // 100% Genuine Activity Data by Day of the Week from real database records
+  const daysOfWeek = [
+    { key: 6, name: 'السبت' },
+    { key: 0, name: 'الأحد' },
+    { key: 1, name: 'الإثنين' },
+    { key: 2, name: 'الثلاثاء' },
+    { key: 3, name: 'الأربعاء' },
+    { key: 4, name: 'الخميس' },
+    { key: 5, name: 'الجمعة' },
   ];
 
-  // Distribution chart data
+  const activityData = daysOfWeek.map(d => {
+    const dayUsers = profiles.filter(p => p.created_at && new Date(p.created_at).getDay() === d.key).length;
+    const dayPosts = posts.filter(p => p.created_at && new Date(p.created_at).getDay() === d.key).length;
+
+    return {
+      name: d.name,
+      users: dayUsers,
+      posts: dayPosts,
+    };
+  });
+
+  // Real Distribution chart data
   const roleDistribution = [
-    { name: 'خدام ومسؤولين', value: Math.max(1, servantsCount), color: '#0e87eb' },
-    { name: 'أعضاء ومخدومين', value: Math.max(1, profiles.length - servantsCount), color: '#38a4f8' },
-    { name: 'طلاب مدارس الأحد', value: Math.max(1, students.length), color: '#f59e0b' },
+    { name: 'خدام ومسؤولين', value: servantsCount, color: '#0e87eb' },
+    { name: 'أعضاء ومخدومين', value: membersCount, color: '#38a4f8' },
+    { name: 'طلاب مدارس الأحد', value: studentsCount, color: '#f59e0b' },
   ];
 
   return (
@@ -150,8 +174,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', textAlign: 'right' }} 
                 />
-                <Area type="monotone" dataKey="users" name="نشاط الأعضاء" stroke="#0e87eb" strokeWidth={2} fillOpacity={1} fill="url(#colorUsers)" />
-                <Area type="monotone" dataKey="attendance" name="حضور مدارس الأحد" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorAtt)" />
+                <Area type="monotone" dataKey="users" name="تسجيل الأعضاء" stroke="#0e87eb" strokeWidth={2} fillOpacity={1} fill="url(#colorUsers)" />
+                <Area type="monotone" dataKey="posts" name="مشاركات المجتمع" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorAtt)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

@@ -34,7 +34,7 @@ export interface PaymentRequest {
   sender_wallet_or_phone?: string;
   receipt_url?: string;
   notes?: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   duration_months?: number;
   admin_notes?: string;
   created_at: string;
