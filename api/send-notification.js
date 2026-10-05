@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     }
 
     // Read securely from Vercel Environment Variables
-    const appId = process.env.ONESIGNAL_APP_ID || process.env.VITE_ONESIGNAL_APP_ID || '141dc41c-32b4-4b53-b1d6-44485ebcc3f2';
+    const appId = process.env.ONESIGNAL_APP_ID || process.env.VITE_ONESIGNAL_APP_ID || 'dfe3a3e8-db66-47e0-bdac-bf09a49b0bb4';
     const restApiKey = process.env.ONESIGNAL_REST_API_KEY;
 
     if (!restApiKey) {
