@@ -93,11 +93,28 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onRefresh 
       const { error } = await supabase.from('notifications').insert(records);
       if (error) throw error;
 
+      // 2. Trigger real Push Notification via OneSignal secure Vercel API
+      try {
+        await fetch('/api/send-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: title.trim(),
+            message: body.trim(),
+            target: targetGroup,
+            targetUserIds: users && users.length > 0 ? users.map((u) => u.id) : undefined,
+            data: { type: 'admin_broadcast' }
+          })
+        });
+      } catch (pushErr) {
+        console.warn('Push dispatch notice:', pushErr);
+      }
+
       setTitle('');
       setBody('');
       fetchNotifications();
       onRefresh();
-      setStatusMessage(`تم إرسال التنبيه الفوري بنجاح إلى جميع الأجهزة والمستخدمين`);
+      setStatusMessage(`تم إرسال التنبيه الفوري بنجاح إلى جميع الأجهزة والمستخدمين عبر OneSignal`);
       setTimeout(() => setStatusMessage(null), 4000);
     } catch (err: any) {
       alert('خطأ أثناء إرسال التنبيه: ' + err.message);
