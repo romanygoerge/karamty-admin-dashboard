@@ -13,7 +13,8 @@ import {
   RefreshCw,
   BookOpen,
   Crown,
-  Smartphone
+  Smartphone,
+  Video
 } from 'lucide-react';
 
 export type NavItem = 
@@ -27,7 +28,8 @@ export type NavItem =
   | 'inventory' 
   | 'finance' 
   | 'rewards' 
-  | 'notifications';
+  | 'notifications'
+  | 'tutorials';
 
 interface SidebarProps {
   currentTab: NavItem;
@@ -52,6 +54,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'تثبيتات وتحميلات التطبيق', 
       icon: <Smartphone className="w-5 h-5 text-sky-400" />,
       badge: 'جديد'
+    },
+    { 
+      id: 'tutorials', 
+      label: 'شروحات التطبيق (يوتيوب)', 
+      icon: <Video className="w-5 h-5 text-red-400" />,
+      badge: 'فيديو'
     },
     { 
       id: 'subscriptions', 

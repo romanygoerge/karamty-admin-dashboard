@@ -12,6 +12,7 @@ import { FinanceView } from './views/FinanceView';
 import { RewardsView } from './views/RewardsView';
 import { NotificationsView } from './views/NotificationsView';
 import { SubscriptionsView } from './views/SubscriptionsView';
+import { TutorialsView } from './views/TutorialsView';
 import { supabase } from './lib/supabase';
 import { Profile, CommunityPost, SundaySchoolStudent, InventoryItem, BudgetItem } from './types';
 
@@ -144,6 +145,10 @@ export function App() {
     notifications: {
       title: 'البث والإشعارات الفورية',
       subtitle: 'إرسال تنبيهات عاجلة تصل مباشرة إلى تطبيق الموبايل لجميع المستخدمين'
+    },
+    tutorials: {
+      title: 'إدارة شروحات وفيديوهات التطبيق',
+      subtitle: 'إضافة ومزامنة فيديوهات يوتيوب الإرشادية التي تعرض للمستخدمين في قسم شرح التطبيق'
     }
   };
 
@@ -187,6 +192,10 @@ export function App() {
               initialStoreInstalls={storeInstalls}
               onStoreInstallsUpdated={setStoreInstalls}
             />
+          )}
+
+          {currentTab === 'tutorials' && (
+            <TutorialsView />
           )}
 
           {currentTab === 'subscriptions' && (
