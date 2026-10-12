@@ -26,6 +26,7 @@ export function App() {
   const [students, setStudents] = useState<SundaySchoolStudent[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [budget, setBudget] = useState<BudgetItem[]>([]);
+  const [storeInstalls, setStoreInstalls] = useState<number>(0);
 
   // Count pending subscription/donation payment requests
   const pendingSubCount = budget.filter(b => 
@@ -37,12 +38,13 @@ export function App() {
   const fetchAllData = useCallback(async () => {
     setIsSyncing(true);
     try {
-      const [pRes, postRes, sRes, invRes, budRes] = await Promise.all([
+      const [pRes, postRes, sRes, invRes, budRes, campRes] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('community_posts').select('*').order('created_at', { ascending: false }),
         supabase.from('sunday_school_students').select('*').order('full_name', { ascending: true }),
         supabase.from('inventory_items').select('*').order('name', { ascending: true }),
         supabase.from('service_budget_items').select('*').order('date', { ascending: false }),
+        supabase.from('app_campaigns').select('*').eq('title', 'google_play_installs').maybeSingle(),
       ]);
 
       if (pRes.data) setProfiles(pRes.data);
@@ -50,6 +52,9 @@ export function App() {
       if (sRes.data) setStudents(sRes.data);
       if (invRes.data) setInventory(invRes.data);
       if (budRes.data) setBudget(budRes.data);
+      if (campRes.data && typeof campRes.data.views_count === 'number') {
+        setStoreInstalls(campRes.data.views_count);
+      }
     } catch (err) {
       console.error('Error fetching data:', err);
     } finally {
@@ -171,6 +176,7 @@ export function App() {
               students={students}
               inventory={inventory}
               budget={budget}
+              storeInstalls={storeInstalls}
               onNavigate={setCurrentTab}
             />
           )}
@@ -178,6 +184,8 @@ export function App() {
           {currentTab === 'app_installs' && (
             <AppInstallsView
               profiles={profiles}
+              initialStoreInstalls={storeInstalls}
+              onStoreInstallsUpdated={setStoreInstalls}
             />
           )}
 

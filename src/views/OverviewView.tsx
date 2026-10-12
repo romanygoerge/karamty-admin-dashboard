@@ -34,6 +34,7 @@ interface OverviewViewProps {
   students: SundaySchoolStudent[];
   inventory: InventoryItem[];
   budget: BudgetItem[];
+  storeInstalls?: number;
   onNavigate: (tab: any) => void;
 }
 
@@ -43,6 +44,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   students,
   inventory,
   budget,
+  storeInstalls,
   onNavigate
 }) => {
   const isRejected = (b: BudgetItem) => {
@@ -96,8 +98,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     { name: 'طلاب مدارس الأحد', value: studentsCount, color: '#f59e0b' },
   ];
 
-  const savedBaseline = typeof window !== 'undefined' ? (parseInt(localStorage.getItem('karamty_store_baseline_installs') || '45', 10)) : 45;
-  const totalInstalls = Math.max(savedBaseline, profiles.length);
+  const isStoreSet = typeof storeInstalls === 'number' && storeInstalls > 0;
+  const totalInstalls = isStoreSet ? storeInstalls : profiles.length;
   const unregisteredGuests = Math.max(0, totalInstalls - profiles.length);
 
   return (
@@ -113,12 +115,18 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <span className="text-sm font-bold text-white">تثبيتات وتحميلات التطبيق الحية</span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold border border-emerald-500/30 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                نشط من المتجر
+                {isStoreSet ? 'موثق من المتجر' : 'حسابات مسجلة'}
               </span>
             </div>
-            <p className="text-xs text-slate-300 mt-0.5">
-              إجمالي الأجهزة التي حمّلت التطبيق: <strong className="text-white font-mono text-sm">{totalInstalls}</strong> جهاز (منهم <strong className="text-amber-400 font-mono">{unregisteredGuests}</strong> زائر يتصفحون بدون تسجيل دخول، و <strong className="text-emerald-400 font-mono">{profiles.length}</strong> حساب مسجل).
-            </p>
+            {isStoreSet ? (
+              <p className="text-xs text-slate-300 mt-0.5">
+                إجمالي الأجهزة التي حمّلت التطبيق: <strong className="text-white font-mono text-sm">{totalInstalls}</strong> جهاز (منهم <strong className="text-amber-400 font-mono">{unregisteredGuests}</strong> زائر بدون تسجيل دخول، و <strong className="text-emerald-400 font-mono">{profiles.length}</strong> حساب مسجل).
+              </p>
+            ) : (
+              <p className="text-xs text-slate-300 mt-0.5">
+                المستخدمون المسجلون: <strong className="text-emerald-400 font-mono text-sm">{profiles.length}</strong> حساب • اضغط لمزامنة إجمالي التنزيلات الحقيقي من متجر Google Play أو OneSignal.
+              </p>
+            )}
           </div>
         </div>
 

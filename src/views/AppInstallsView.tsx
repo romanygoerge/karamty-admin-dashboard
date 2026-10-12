@@ -15,6 +15,7 @@ import {
   Radio
 } from 'lucide-react';
 import { Profile } from '../types';
+import { supabase } from '../lib/supabase';
 import { 
   ResponsiveContainer, 
   BarChart, 
@@ -30,15 +31,18 @@ import {
 
 interface AppInstallsViewProps {
   profiles: Profile[];
+  initialStoreInstalls?: number;
+  onStoreInstallsUpdated?: (val: number) => void;
 }
 
-export const AppInstallsView: React.FC<AppInstallsViewProps> = ({ profiles }) => {
+export const AppInstallsView: React.FC<AppInstallsViewProps> = ({ 
+  profiles,
+  initialStoreInstalls = 0,
+  onStoreInstallsUpdated
+}) => {
   // Saved settings in localStorage for persistent admin preference
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('karamty_onesignal_key') || '');
-  const [storeBaseline, setStoreBaseline] = useState<number>(() => {
-    const saved = localStorage.getItem('karamty_store_baseline_installs');
-    return saved ? parseInt(saved, 10) : 45; // Default healthy baseline
-  });
+  const [storeBaseline, setStoreBaseline] = useState<number>(initialStoreInstalls);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -91,11 +95,27 @@ export const AppInstallsView: React.FC<AppInstallsViewProps> = ({ profiles }) =>
   };
 
   useEffect(() => {
-    // Attempt background sync if API key is stored
+    if (initialStoreInstalls > 0) {
+      setStoreBaseline(initialStoreInstalls);
+      setTempBaseline(initialStoreInstalls.toString());
+    } else {
+      supabase.from('app_campaigns')
+        .select('*')
+        .eq('title', 'google_play_installs')
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data && typeof data.views_count === 'number' && data.views_count > 0) {
+            setStoreBaseline(data.views_count);
+            setTempBaseline(data.views_count.toString());
+            if (onStoreInstallsUpdated) onStoreInstallsUpdated(data.views_count);
+          }
+        });
+    }
+
     if (apiKey) {
       fetchLiveInstalls(apiKey);
     }
-  }, []);
+  }, [initialStoreInstalls]);
 
   const handleSaveApiKey = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,21 +123,35 @@ export const AppInstallsView: React.FC<AppInstallsViewProps> = ({ profiles }) =>
     fetchLiveInstalls(apiKey.trim());
   };
 
-  const handleSaveBaseline = (e: React.FormEvent) => {
+  const handleSaveBaseline = async (e: React.FormEvent) => {
     e.preventDefault();
     const val = parseInt(tempBaseline, 10);
     if (!isNaN(val) && val >= 0) {
       setStoreBaseline(val);
       localStorage.setItem('karamty_store_baseline_installs', val.toString());
+      if (onStoreInstallsUpdated) onStoreInstallsUpdated(val);
+      try {
+        await supabase.from('app_campaigns').upsert({
+          id: '00000000-0000-0000-0000-000000000001',
+          title: 'google_play_installs',
+          views_count: val,
+          is_active: true,
+          updated_at: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error('Failed to sync to supabase:', err);
+      }
       setIsEditingBaseline(false);
-      setSuccessMsg('تم تحديث وتثبيت رقم تنزيلات المتجر بنجاح.');
+      setSuccessMsg(`تم تثبيت ومزامنة إجمالي التنزيلات سحابياً: ${val} هاتف.`);
     }
   };
 
   // Calculations
   const registeredCount = profiles.length;
-  // Effective total installs: use live count from OneSignal if available, otherwise maximum of store baseline and registered count
-  const effectiveTotalInstalls = Math.max(liveDevices ?? storeBaseline, registeredCount);
+  // Effective total installs: live count from OneSignal if available, else storeBaseline, else registeredCount
+  const effectiveTotalInstalls = liveDevices !== null 
+    ? liveDevices 
+    : (storeBaseline > 0 ? storeBaseline : registeredCount);
   const unregisteredGuests = Math.max(0, effectiveTotalInstalls - registeredCount);
   const conversionRate = effectiveTotalInstalls > 0 ? ((registeredCount / effectiveTotalInstalls) * 100).toFixed(1) : '0';
 
@@ -209,6 +243,24 @@ export const AppInstallsView: React.FC<AppInstallsViewProps> = ({ profiles }) =>
         )}
       </div>
 
+      {/* Notice & Quick Input when Baseline is not set */}
+      {storeBaseline === 0 && liveDevices === null && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-amber-300">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-400" />
+            <span>
+              <strong>تنبيه الدقة:</strong> الرقم المعروض حالياً ({registeredCount}) يمثل فقط من أنشأ حساباً داخل التطبيق. لمعرفة إجمالي كل من نزّل التطبيق بدون تسجيل دخول، أدخل رقم Google Play Console أو اربط OneSignal أدناه.
+            </span>
+          </div>
+          <button
+            onClick={() => setIsEditingBaseline(true)}
+            className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold whitespace-nowrap hover:bg-amber-400 transition-colors"
+          >
+            إدخال رقم Google Play الآن
+          </button>
+        </div>
+      )}
+
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Card 1: Total Installs */}
@@ -224,12 +276,18 @@ export const AppInstallsView: React.FC<AppInstallsViewProps> = ({ profiles }) =>
             <span className="text-xs text-brand-400 font-medium">جهاز</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-            <span>كل الهواتف التي فتحت التطبيق</span>
+            <span>
+              {liveDevices !== null 
+                ? 'موثق لحظياً من OneSignal'
+                : storeBaseline > 0 
+                  ? 'موثق من Google Play Console'
+                  : 'يمثل الحسابات المسجلة'}
+            </span>
             <button 
               onClick={() => setIsEditingBaseline(true)}
-              className="text-brand-400 hover:underline text-[11px]"
+              className="text-brand-400 hover:underline text-[11px] font-bold"
             >
-              تعديل المرجع
+              تعديل الرقم
             </button>
           </div>
         </div>
