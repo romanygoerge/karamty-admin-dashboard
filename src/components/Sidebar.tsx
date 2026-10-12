@@ -15,12 +15,15 @@ import {
   Crown,
   Smartphone,
   Video,
-  X
+  X,
+  Lightbulb
 } from 'lucide-react';
 
 export type NavItem = 
   | 'overview' 
   | 'app_installs'
+  | 'tutorials'
+  | 'suggestions'
   | 'subscriptions'
   | 'users' 
   | 'sunday_school' 
@@ -29,8 +32,7 @@ export type NavItem =
   | 'inventory' 
   | 'finance' 
   | 'rewards' 
-  | 'notifications'
-  | 'tutorials';
+  | 'notifications';
 
 interface SidebarProps {
   currentTab: NavItem;
@@ -65,6 +67,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'شروحات التطبيق (يوتيوب)', 
       icon: <Video className="w-5 h-5 text-red-400" />,
       badge: 'فيديو'
+    },
+    { 
+      id: 'suggestions', 
+      label: 'اقتراحات وتطوير التطبيق', 
+      icon: <Lightbulb className="w-5 h-5 text-amber-400" />,
+      badge: 'تصويت'
     },
     { 
       id: 'subscriptions', 

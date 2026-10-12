@@ -13,6 +13,7 @@ import { RewardsView } from './views/RewardsView';
 import { NotificationsView } from './views/NotificationsView';
 import { SubscriptionsView } from './views/SubscriptionsView';
 import { TutorialsView } from './views/TutorialsView';
+import { SuggestionsView } from './views/SuggestionsView';
 import { supabase } from './lib/supabase';
 import { Profile, CommunityPost, SundaySchoolStudent, InventoryItem, BudgetItem } from './types';
 
@@ -149,6 +150,10 @@ export function App() {
     tutorials: {
       title: 'إدارة شروحات وفيديوهات التطبيق',
       subtitle: 'إضافة ومزامنة فيديوهات يوتيوب الإرشادية التي تعرض للمستخدمين في قسم شرح التطبيق'
+    },
+    suggestions: {
+      title: 'اقتراحات وتطوير التطبيق',
+      subtitle: 'متابعة أفكار ومقترحات المستخدمين، تصويتات المجتمع، والردود الرسمية'
     }
   };
 
@@ -204,6 +209,10 @@ export function App() {
 
           {currentTab === 'tutorials' && (
             <TutorialsView />
+          )}
+
+          {currentTab === 'suggestions' && (
+            <SuggestionsView />
           )}
 
           {currentTab === 'subscriptions' && (
