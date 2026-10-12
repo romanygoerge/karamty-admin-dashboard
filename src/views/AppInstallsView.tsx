@@ -530,7 +530,7 @@ export const AppInstallsView: React.FC<AppInstallsViewProps> = ({
               2. وضع التطبيق على فيسبوك
             </h4>
             <p className="text-slate-400 leading-relaxed">
-              تأكد من تفعيل وضع <strong className="text-white">Live Mode</strong> لتطبيق فيسبوك برقم <code className="text-brand-300 font-mono">1088493019808389</code> ليتم احتساب كل الجمهور.
+              تأكد من تفعيل وضع <strong className="text-white">Live Mode</strong> لتطبيق فيسبوك برقم <code className="text-brand-300 font-mono">2304281243687685</code> ليتم احتساب كل الجمهور.
             </p>
           </div>
 
