@@ -220,7 +220,7 @@ export const SuggestionsView: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
-                متابعة أفكار ومقترحات الخدام والمخدومين لتطوير كرامتي، مرتبة من الأكثر تقييماً وتصويتاً، مع إمكانية الرد الرسمي وتحديث حالة كل فكرة.
+                متابعة أفكار ومقترحات الخدام والمخدومين لتطوير كرمتي، مرتبة من الأكثر تقييماً وتصويتاً، مع إمكانية الرد الرسمي وتحديث حالة كل فكرة.
               </p>
             </div>
           </div>
@@ -298,7 +298,7 @@ export const SuggestionsView: React.FC = () => {
             <span className="text-3xl font-extrabold text-emerald-400 tracking-tight">{stats.completed}</span>
             <span className="text-xs text-slate-400 font-medium">ميزة أصبحت حية</span>
           </div>
-          <p className="mt-2 text-xs text-slate-400">تم إضافتها لتطبيق كرامتي</p>
+          <p className="mt-2 text-xs text-slate-400">تم إضافتها لتطبيق كرمتي</p>
         </div>
       </div>
 
@@ -421,7 +421,7 @@ export const SuggestionsView: React.FC = () => {
                         <div className="mt-3 p-3.5 rounded-xl bg-brand-950/40 border border-brand-500/30 text-xs space-y-1">
                           <div className="flex items-center gap-1.5 font-bold text-brand-400">
                             <Sparkles className="w-3.5 h-3.5" />
-                            <span>رد إدارة تطبيق كرامتي:</span>
+                            <span>رد إدارة تطبيق كرمتي:</span>
                           </div>
                           <p className="text-slate-200 leading-relaxed">
                             {s.admin_response}

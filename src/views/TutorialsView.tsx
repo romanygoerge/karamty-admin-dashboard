@@ -189,7 +189,7 @@ export const TutorialsView: React.FC = () => {
                 فيديوهات شرح التطبيق
               </span>
               <span className="text-xs text-slate-400">
-                متزامن لحظياً مع تطبيق كرامتي
+                متزامن لحظياً مع تطبيق كرمتي
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
@@ -336,7 +336,7 @@ export const TutorialsView: React.FC = () => {
           <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-12 text-center text-slate-400">
             <Video className="w-12 h-12 text-slate-600 mx-auto mb-3" />
             <p className="text-sm font-semibold text-slate-300">لا توجد فيديوهات شروحات مضافة حتى الآن</p>
-            <p className="text-xs text-slate-500 mt-1">استخدم النموذج أعلاه لإضافة أول فيديو شرح لتطبيق كرامتي.</p>
+            <p className="text-xs text-slate-500 mt-1">استخدم النموذج أعلاه لإضافة أول فيديو شرح لتطبيق كرمتي.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 > nul
 echo ========================================================
-echo   🚀 رفع لوحة تحكم تطبيق كرامتي على GitHub و Vercel
+echo   🚀 رفع لوحة تحكم تطبيق كرمتي على GitHub و Vercel
 echo ========================================================
 echo.
 set /p REPO_URL="أدخل رابط مستودع GitHub الخاص بك (مثال: https://github.com/username/karamty-admin-dashboard.git): "

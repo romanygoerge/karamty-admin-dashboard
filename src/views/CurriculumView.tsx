@@ -545,7 +545,7 @@ export const CurriculumView: React.FC = () => {
               <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-500">
                 <span className="flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-gold-400" />
-                  <span>تطبيق كرامتي للموبايل</span>
+                  <span>تطبيق كرمتي للموبايل</span>
                 </span>
                 <span>
                   {hasPdf ? 'مفعل وجاهز للتنزيل للمستخدمين' : 'غير متوفر حالياً في التطبيق'}

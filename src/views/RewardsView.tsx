@@ -291,7 +291,7 @@ export const RewardsView: React.FC<RewardsViewProps> = ({ onRefresh }) => {
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title="إضافة مكافأة جديدة لمتجر كرامتي"
+        title="إضافة مكافأة جديدة لمتجر كرمتي"
       >
         <form onSubmit={handleCreateReward} className="space-y-4 text-xs">
           <div>

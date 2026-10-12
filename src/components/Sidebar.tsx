@@ -126,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div>
                 <h1 className="text-base sm:text-lg font-bold text-white tracking-wide flex items-center gap-1.5">
-                  تطبيق كرامتي
+                  تطبيق كرمتي
                   <Sparkles className="w-3.5 h-3.5 text-gold-400" />
                 </h1>
                 <p className="text-[11px] sm:text-xs text-slate-400 font-medium">لوحة الإدارة والمتابعة</p>

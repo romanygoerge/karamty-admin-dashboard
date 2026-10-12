@@ -29,7 +29,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ posts, profiles = 
   // New Post Form
   const [content, setContent] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  const [authorName, setAuthorName] = useState('إدارة كرامتي العامة');
+  const [authorName, setAuthorName] = useState('إدارة كرمتي العامة');
   const [isAnnouncement, setIsAnnouncement] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -256,7 +256,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ posts, profiles = 
       <Modal
         isOpen={isNewPostOpen}
         onClose={() => setIsNewPostOpen(false)}
-        title="نشر إعلان كنسي رسمي في تطبيق كرامتي"
+        title="نشر إعلان كنسي رسمي في تطبيق كرمتي"
       >
         <form onSubmit={handleCreatePost} className="space-y-4 text-xs">
           <div>
