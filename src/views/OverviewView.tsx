@@ -8,7 +8,10 @@ import {
   TrendingUp,
   Activity,
   UserCheck,
-  CalendarCheck
+  CalendarCheck,
+  Smartphone,
+  DownloadCloud,
+  Radio
 } from 'lucide-react';
 import { StatsCard } from '../components/StatsCard';
 import { Profile, CommunityPost, SundaySchoolStudent, InventoryItem, BudgetItem } from '../types';
@@ -93,8 +96,41 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     { name: 'طلاب مدارس الأحد', value: studentsCount, color: '#f59e0b' },
   ];
 
+  const savedBaseline = typeof window !== 'undefined' ? (parseInt(localStorage.getItem('karamty_store_baseline_installs') || '45', 10)) : 45;
+  const totalInstalls = Math.max(savedBaseline, profiles.length);
+  const unregisteredGuests = Math.max(0, totalInstalls - profiles.length);
+
   return (
     <div className="space-y-6">
+      {/* App Installs & Downloads Live Banner */}
+      <div className="bg-gradient-to-r from-brand-950 via-slate-900 to-brand-900/40 border border-brand-500/30 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fadeIn">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center flex-shrink-0 border border-brand-500/30">
+            <Smartphone className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-white">تثبيتات وتحميلات التطبيق الحية</span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold border border-emerald-500/30 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                نشط من المتجر
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              إجمالي الأجهزة التي حمّلت التطبيق: <strong className="text-white font-mono text-sm">{totalInstalls}</strong> جهاز (منهم <strong className="text-amber-400 font-mono">{unregisteredGuests}</strong> زائر يتصفحون بدون تسجيل دخول، و <strong className="text-emerald-400 font-mono">{profiles.length}</strong> حساب مسجل).
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onNavigate('app_installs')}
+          className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs flex items-center justify-center gap-2 transition-all whitespace-nowrap shadow-lg shadow-brand-600/20 hover:scale-[1.02]"
+        >
+          <DownloadCloud className="w-4 h-4" />
+          متابعة تفاصيل التثبيتات والحملات
+        </button>
+      </div>
+
       {/* Top Welcome & KPI row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatsCard

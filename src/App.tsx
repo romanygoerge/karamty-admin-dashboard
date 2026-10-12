@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar, NavItem } from './components/Sidebar';
 import { Header } from './components/Header';
 import { OverviewView } from './views/OverviewView';
+import { AppInstallsView } from './views/AppInstallsView';
 import { UsersView } from './views/UsersView';
 import { SundaySchoolView } from './views/SundaySchoolView';
 import { CurriculumView } from './views/CurriculumView';
@@ -99,6 +100,10 @@ export function App() {
       title: 'لوحة التحكم والقيادة',
       subtitle: 'نظرة شاملة ومؤشرات حية لمتابعة كافة أنشطة وخدمات الكنيسة'
     },
+    app_installs: {
+      title: 'متابعة تثبيتات وتحميلات التطبيق',
+      subtitle: 'إحصائيات حية للأجهزة وتحميلات متجر Google Play مع تتبع الحملات الإعلانية ونسب الزوار'
+    },
     subscriptions: {
       title: 'إدارة الاشتراكات والتبرعات والدعم',
       subtitle: 'متابعة تحويلات InstaPay (01204062941)، تفعيل الاشتراكات الشهرية والسنوية، وإلغاء الإعلانات للمستخدمين'
@@ -167,6 +172,12 @@ export function App() {
               inventory={inventory}
               budget={budget}
               onNavigate={setCurrentTab}
+            />
+          )}
+
+          {currentTab === 'app_installs' && (
+            <AppInstallsView
+              profiles={profiles}
             />
           )}
 

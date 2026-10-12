@@ -12,11 +12,13 @@ import {
   Sparkles,
   RefreshCw,
   BookOpen,
-  Crown
+  Crown,
+  Smartphone
 } from 'lucide-react';
 
 export type NavItem = 
   | 'overview' 
+  | 'app_installs'
   | 'subscriptions'
   | 'users' 
   | 'sunday_school' 
@@ -45,6 +47,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const menuItems: { id: NavItem; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'overview', label: 'لوحة القيادة والمؤشرات', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { 
+      id: 'app_installs', 
+      label: 'تثبيتات وتحميلات التطبيق', 
+      icon: <Smartphone className="w-5 h-5 text-sky-400" />,
+      badge: 'جديد'
+    },
     { 
       id: 'subscriptions', 
       label: 'الاشتراكات والتبرعات', 
