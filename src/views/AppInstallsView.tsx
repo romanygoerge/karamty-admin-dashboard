@@ -57,6 +57,22 @@ export const AppInstallsView: React.FC<AppInstallsViewProps> = ({
   const [isEditingBaseline, setIsEditingBaseline] = useState(false);
   const [tempBaseline, setTempBaseline] = useState(storeBaseline.toString());
 
+  // Live Guest Activity Logs from Supabase
+  const [guestLogs, setGuestLogs] = useState<any[]>([]);
+
+  const fetchGuestLogs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('guest_activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(25);
+      if (!error && data) {
+        setGuestLogs(data);
+      }
+    } catch (_) {}
+  };
+
   const fetchLiveInstalls = async (keyToUse?: string) => {
     setIsLoading(true);
     setErrorMsg(null);
@@ -115,6 +131,21 @@ export const AppInstallsView: React.FC<AppInstallsViewProps> = ({
     if (apiKey) {
       fetchLiveInstalls(apiKey);
     }
+
+    fetchGuestLogs();
+
+    const channel = supabase
+      .channel('karamty-guest-logs-live')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'guest_activity_logs' }, (payload) => {
+        if (payload.new) {
+          setGuestLogs(prev => [payload.new, ...prev.slice(0, 24)]);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [initialStoreInstalls]);
 
   const handleSaveApiKey = (e: React.FormEvent) => {
@@ -503,6 +534,98 @@ export const AppInstallsView: React.FC<AppInstallsViewProps> = ({
               <span>إجمالي الأجهزة: <strong className="text-white">{liveDevices}</strong></span>
               <span>الأجهزة المتاحة للإشعارات: <strong className="text-white">{messageableDevices ?? 0}</strong></span>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Live Guest Activity Stream (Unregistered Visitors Live Feed) */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-800">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 border border-emerald-500/30">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                بث تفاعلي حي لحظة بلحظة
+              </span>
+              <span className="text-xs text-slate-400">
+                آخر {guestLogs.length} حركة مسجلة
+              </span>
+            </div>
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Radio className="w-5 h-5 text-emerald-400" />
+              نشاط وتفاعلات الزوار غير المسجلين (Guest Activity Feed)
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">
+              يرصد كل حركة أو تصفح يقوم به أي مستخدم على هاتفه حتى لو لم يقم بإنشاء حساب أو تسجيل الدخول.
+            </p>
+          </div>
+
+          <button
+            onClick={() => fetchGuestLogs()}
+            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs flex items-center gap-1.5 transition-all self-start md:self-auto"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            تحديث السجل
+          </button>
+        </div>
+
+        {guestLogs.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 text-xs">
+            <Radio className="w-8 h-8 text-slate-600 mx-auto mb-2 animate-pulse" />
+            <p>في انتظار تسجيل أول حركة من التطبيق... بمجرد فتح أي زائر للتطبيق ستظهر تفاصيله هنا فوراً.</p>
+          </div>
+        ) : (
+          <div className="mt-4 divide-y divide-slate-800/60 max-h-96 overflow-y-auto">
+            {guestLogs.map((log: any) => {
+              const timeStr = new Date(log.created_at).toLocaleTimeString('ar-EG', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              });
+              const dateStr = new Date(log.created_at).toLocaleDateString('ar-EG');
+              
+              let eventLabel = 'تصفح التطبيق';
+              let badgeColor = 'bg-slate-800 text-slate-300 border-slate-700';
+
+              if (log.event_type === 'open_app') {
+                eventLabel = 'فتح وتشغيل التطبيق';
+                badgeColor = 'bg-brand-500/20 text-brand-300 border-brand-500/30';
+              } else if (log.event_type === 'play_hymn') {
+                eventLabel = `تشغيل ترنيمة: ${log.details?.title || ''}`;
+                badgeColor = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+              } else if (log.event_type === 'read_bible') {
+                eventLabel = `قراءة إنجيل: ${log.details?.book || ''} (إصحاح ${log.details?.chapter || ''})`;
+                badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+              } else if (log.event_type === 'play_game') {
+                eventLabel = `دخول مسابقة/لعبة: ${log.details?.game || ''}`;
+                badgeColor = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+              } else if (log.event_type === 'screen_view') {
+                eventLabel = `زيارة شاشة: ${log.screen_name || 'عامة'}`;
+                badgeColor = 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+              }
+
+              return (
+                <div key={log.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-800/30 px-2 rounded-lg transition-colors">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${badgeColor}`}>
+                      {eventLabel}
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-400 bg-slate-800/60 px-2 py-0.5 rounded border border-slate-700/40">
+                      جهاز: {log.device_id}
+                    </span>
+                    {log.user_id && (
+                      <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                        مستخدم مسجل
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2">
+                    <span>{dateStr}</span>
+                    <span className="text-slate-300 font-bold">{timeStr}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
