@@ -14,6 +14,7 @@ import { NotificationsView } from './views/NotificationsView';
 import { SubscriptionsView } from './views/SubscriptionsView';
 import { TutorialsView } from './views/TutorialsView';
 import { SuggestionsView } from './views/SuggestionsView';
+import { SupportView } from './views/SupportView';
 import { supabase } from './lib/supabase';
 import { Profile, CommunityPost, SundaySchoolStudent, InventoryItem, BudgetItem } from './types';
 
@@ -21,6 +22,7 @@ export function App() {
   const [currentTab, setCurrentTab] = useState<NavItem>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [unreadSupportCount, setUnreadSupportCount] = useState(0);
 
   // Central Database State
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -95,7 +97,17 @@ export function App() {
           if (data) setBudget(data);
         });
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => {
+        supabase.from('support_tickets').select('id', { count: 'exact' }).gt('unread_for_admin', 0).then(({ count }) => {
+          setUnreadSupportCount(count || 0);
+        });
+      })
       .subscribe();
+
+    // Initial check for unread support tickets
+    supabase.from('support_tickets').select('id', { count: 'exact' }).gt('unread_for_admin', 0).then(({ count }) => {
+      setUnreadSupportCount(count || 0);
+    });
 
     return () => {
       supabase.removeChannel(channel);
@@ -154,6 +166,10 @@ export function App() {
     suggestions: {
       title: 'اقتراحات وتطوير التطبيق',
       subtitle: 'متابعة أفكار ومقترحات المستخدمين، تصويتات المجتمع، والردود الرسمية'
+    },
+    support: {
+      title: 'محادثات وتذاكر الدعم الفني',
+      subtitle: 'تواصل مباشر مع مستخدمي التطبيق لحل المشاكل والاستفسارات بشكل لحظي'
     }
   };
 
@@ -170,6 +186,7 @@ export function App() {
         }}
         isSyncing={isSyncing}
         onRefresh={fetchAllData}
+        unreadSupportCount={unreadSupportCount}
         pendingSubCount={pendingSubCount}
         isOpenMobile={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
@@ -205,6 +222,10 @@ export function App() {
               initialStoreInstalls={storeInstalls}
               onStoreInstallsUpdated={setStoreInstalls}
             />
+          )}
+
+          {currentTab === 'support' && (
+            <SupportView />
           )}
 
           {currentTab === 'tutorials' && (

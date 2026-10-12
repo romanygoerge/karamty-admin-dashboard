@@ -16,12 +16,14 @@ import {
   Smartphone,
   Video,
   X,
-  Lightbulb
+  Lightbulb,
+  Headphones
 } from 'lucide-react';
 
 export type NavItem = 
   | 'overview' 
   | 'app_installs'
+  | 'support'
   | 'tutorials'
   | 'suggestions'
   | 'subscriptions'
@@ -40,6 +42,7 @@ interface SidebarProps {
   isSyncing: boolean;
   onRefresh: () => void;
   unreadCount?: number;
+  unreadSupportCount?: number;
   pendingSubCount?: number;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
@@ -50,12 +53,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   isSyncing,
   onRefresh,
+  unreadSupportCount,
   pendingSubCount,
   isOpenMobile = false,
   onCloseMobile
 }) => {
   const menuItems: { id: NavItem; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'overview', label: 'لوحة القيادة والمؤشرات', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { 
+      id: 'support', 
+      label: 'تواصل مع الدعم الفني', 
+      icon: <Headphones className="w-5 h-5 text-emerald-400" />,
+      badge: unreadSupportCount && unreadSupportCount > 0 ? `${unreadSupportCount} جديد` : 'مباشر'
+    },
     { 
       id: 'app_installs', 
       label: 'تثبيتات وتحميلات التطبيق', 
