@@ -32,10 +32,10 @@ export const StatsCard: React.FC<StatsCardProps> = ({
       </div>
 
       {(change || description) && (
-        <div className="mt-4 flex items-center justify-between text-xs pt-3 border-t border-slate-800/60">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-1.5 text-xs pt-3 border-t border-slate-800/60">
           {change && (
             <span
-              className={`font-semibold flex items-center gap-1 ${
+              className={`font-semibold flex items-center gap-1 text-[11px] sm:text-xs ${
                 isPositive ? 'text-emerald-400' : 'text-rose-400'
               }`}
             >
@@ -43,7 +43,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({
             </span>
           )}
           {description && (
-            <span className="text-slate-400 text-[11px] truncate max-w-[180px]">
+            <span className="text-slate-400 text-[11px] truncate max-w-full">
               {description}
             </span>
           )}

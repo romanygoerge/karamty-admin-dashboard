@@ -165,9 +165,9 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ inventory, onRefre
 
         <button
           onClick={handleOpenAdd}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-600/30 transition-all"
+          className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-600/30 transition-all whitespace-nowrap"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 shrink-0" />
           <span>إضافة عهدة / صنف جديد</span>
         </button>
       </div>
@@ -212,7 +212,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ inventory, onRefre
       {/* Inventory Table */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
-          <table className="w-full text-right text-xs">
+          <table className="w-full min-w-[650px] text-right text-xs">
             <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
               <tr>
                 <th className="py-3.5 px-4 font-semibold">اسم الصنف / العهدة</th>

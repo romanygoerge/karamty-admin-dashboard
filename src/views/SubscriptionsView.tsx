@@ -387,34 +387,34 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
       {/* ═══════════════════════════════════════════════════════════ */}
       {/* 1. Header Banner & InstaPay info bar */}
       {/* ═══════════════════════════════════════════════════════════ */}
-      <div className="bg-gradient-to-r from-purple-950/80 via-slate-900 to-indigo-950/80 border border-purple-800/40 rounded-2xl p-6 shadow-xl backdrop-blur-md">
+      <div className="bg-gradient-to-r from-purple-950/80 via-slate-900 to-indigo-950/80 border border-purple-800/40 rounded-2xl p-4 sm:p-6 shadow-xl backdrop-blur-md">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center shadow-lg shadow-amber-500/20 text-slate-950 font-bold">
-              <Crown className="w-8 h-8" />
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center shadow-lg shadow-amber-500/20 text-slate-950 font-bold shrink-0">
+              <Crown className="w-7 h-7 sm:w-8 sm:h-8" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-white">إدارة الاشتراكات والتبرعات (كرمتي بلس)</h2>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg sm:text-xl font-bold text-white">إدارة الاشتراكات والتبرعات (كرمتي بلس)</h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   تحكم كامل وآمن
                 </span>
               </div>
-              <p className="text-sm text-slate-300 mt-1">
+              <p className="text-xs sm:text-sm text-slate-300 mt-1">
                 مراجعة تحويلات إنستاباي وتفعيل باقات المشتركين لإزالة إعلانات AdMob نهائياً من التطبيق.
               </p>
             </div>
           </div>
 
           {/* Official InstaPay Number Pill */}
-          <div className="bg-slate-900/90 border border-purple-500/30 rounded-xl px-4 py-3 flex items-center gap-3">
+          <div className="w-full sm:w-auto bg-slate-900/90 border border-purple-500/30 rounded-xl px-4 py-2.5 sm:py-3 flex items-center justify-between sm:justify-start gap-3">
             <div>
               <div className="text-[11px] text-slate-400">رقم إنستاباي المعتمد للتحويلات:</div>
-              <div className="text-lg font-black text-amber-400 tracking-wider">01204062941</div>
+              <div className="text-base sm:text-lg font-black text-amber-400 tracking-wider">01204062941</div>
             </div>
             <button
               onClick={copyNumber}
-              className="p-2 rounded-lg bg-purple-900/40 hover:bg-purple-800/60 text-purple-200 transition-colors"
+              className="p-2 rounded-lg bg-purple-900/40 hover:bg-purple-800/60 text-purple-200 transition-colors shrink-0"
               title="نسخ رقم إنستاباي"
             >
               {copiedNumber ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
@@ -503,20 +503,20 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
       {/* 3. Filters, Tabs & Search */}
       {/* ═══════════════════════════════════════════════════════════ */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        {/* Navigation Tabs */}
-        <div className="flex bg-slate-900/80 p-1.5 rounded-xl border border-slate-800">
+        {/* Navigation Tabs (Scrollable on small mobile screens) */}
+        <div className="flex bg-slate-900/80 p-1.5 rounded-xl border border-slate-800 overflow-x-auto max-w-full">
           <button
             onClick={() => setActiveTab('pending')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5 sm:gap-2 ${
               activeTab === 'pending'
                 ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Clock className="w-4 h-4" />
-            قيد المراجعة
+            <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>قيد المراجعة</span>
             {stats.pendingCount > 0 && (
-              <span className={`px-2 py-0.5 rounded-full text-xs font-black ${
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-black ${
                 activeTab === 'pending' ? 'bg-slate-950 text-amber-400' : 'bg-amber-500/20 text-amber-300'
               }`}>
                 {stats.pendingCount}
@@ -526,31 +526,31 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
 
           <button
             onClick={() => setActiveTab('subscriptions')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5 sm:gap-2 ${
               activeTab === 'subscriptions'
                 ? 'bg-purple-600 text-white font-bold shadow-md shadow-purple-500/20'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Crown className="w-4 h-4" />
-            الاشتراكات المعتمدة
+            <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>الاشتراكات المعتمدة</span>
           </button>
 
           <button
             onClick={() => setActiveTab('donations')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5 sm:gap-2 ${
               activeTab === 'donations'
                 ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-500/20'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Heart className="w-4 h-4" />
-            سجل التبرعات
+            <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>سجل التبرعات</span>
           </button>
 
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
               activeTab === 'all'
                 ? 'bg-slate-700 text-white font-bold'
                 : 'text-slate-400 hover:text-white'

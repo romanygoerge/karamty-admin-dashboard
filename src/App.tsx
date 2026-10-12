@@ -152,28 +152,36 @@ export function App() {
     }
   };
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100 antialiased font-sans">
-      {/* Sidebar */}
+    <div className="flex min-h-screen bg-slate-950 text-slate-100 antialiased font-sans relative overflow-x-hidden">
+      {/* Sidebar (Responsive drawer on mobile, sticky on desktop) */}
       <Sidebar
         currentTab={currentTab}
-        onSelectTab={setCurrentTab}
+        onSelectTab={(tab) => {
+          setCurrentTab(tab);
+          setIsMobileMenuOpen(false);
+        }}
         isSyncing={isSyncing}
         onRefresh={fetchAllData}
         pendingSubCount={pendingSubCount}
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
         <Header
           title={titles[currentTab].title}
           subtitle={titles[currentTab].subtitle}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           showSearch={currentTab === 'users' || currentTab === 'inventory' || currentTab === 'sunday_school'}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
         />
 
-        <main className="flex-1 p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto overflow-x-hidden">
           {currentTab === 'overview' && (
             <OverviewView
               profiles={profiles}

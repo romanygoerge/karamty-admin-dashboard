@@ -292,10 +292,10 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={exportToCSV}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-all"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-all whitespace-nowrap"
           >
             <Download className="w-4 h-4 text-slate-400" />
             <span>تصدير Excel/CSV</span>
@@ -303,7 +303,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
 
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-600/30 transition-all"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-600/30 transition-all whitespace-nowrap"
           >
             <UserPlus className="w-4 h-4" />
             <span>إضافة خادم / مستخدم جديد</span>
@@ -319,7 +319,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
       )}
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
           <input
@@ -331,7 +331,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
           />
         </div>
 
-        <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 w-full sm:w-auto">
+        <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 w-full sm:w-auto overflow-x-auto">
           {[
             { id: 'all', label: `الكل (${profiles.length})` },
             { id: 'servants', label: 'الخدام والمسؤولين' },
@@ -340,7 +340,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
             <button
               key={tab.id}
               onClick={() => setRoleFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                 roleFilter === tab.id
                   ? 'bg-brand-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
@@ -355,7 +355,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
       {/* Users Table */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
-          <table className="w-full text-right text-xs">
+          <table className="w-full min-w-[750px] text-right text-xs">
             <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
               <tr>
                 <th className="py-3.5 px-4 font-semibold">المستخدم</th>

@@ -348,10 +348,10 @@ export const CurriculumView: React.FC = () => {
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setFilter('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+            className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               filter === 'all'
                 ? 'bg-brand-600 text-white shadow-md shadow-brand-600/25'
                 : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
@@ -361,7 +361,7 @@ export const CurriculumView: React.FC = () => {
           </button>
           <button
             onClick={() => setFilter('uploaded')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+            className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               filter === 'uploaded'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
                 : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
@@ -371,7 +371,7 @@ export const CurriculumView: React.FC = () => {
           </button>
           <button
             onClick={() => setFilter('missing')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+            className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               filter === 'missing'
                 ? 'bg-amber-600 text-white shadow-md shadow-amber-600/25'
                 : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'

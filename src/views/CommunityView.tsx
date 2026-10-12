@@ -139,9 +139,9 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ posts, profiles = 
 
         <button
           onClick={() => setIsNewPostOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-600/30 transition-all"
+          className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-600/30 transition-all whitespace-nowrap"
         >
-          <PlusCircle className="w-4 h-4" />
+          <PlusCircle className="w-4 h-4 shrink-0" />
           <span>نشر إعلان رسمي للتطبيق</span>
         </button>
       </div>

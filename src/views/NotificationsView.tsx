@@ -154,7 +154,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onRefresh 
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Send Broadcast Form */}
-        <div className="glass-panel p-6 rounded-2xl border border-slate-800">
+        <div className="glass-panel p-4 sm:p-6 rounded-2xl border border-slate-800">
           <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
             <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
             إنشاء إشعار فوري جديد
@@ -209,7 +209,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onRefresh 
         </div>
 
         {/* Recent Broadcasts Feed */}
-        <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
+        <div className="lg:col-span-2 glass-panel p-4 sm:p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
           <div>
             <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
               <Clock className="w-4 h-4 text-brand-400" />

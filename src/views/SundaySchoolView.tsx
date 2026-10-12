@@ -579,28 +579,28 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
         /* Tab Content 2: Weekly Attendance */
         <>
           {/* Control Bar: Date picker & Save Attendance */}
-          <div className="glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="glass-panel p-3.5 sm:p-4 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
               <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs text-slate-300">
-                <Calendar className="w-4 h-4 text-brand-400" />
-                <span>تاريخ الحصة:</span>
+                <Calendar className="w-4 h-4 text-brand-400 shrink-0" />
+                <span className="shrink-0">تاريخ الحصة:</span>
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
+                  className="bg-transparent text-white font-bold focus:outline-none cursor-pointer text-xs"
                 />
               </div>
 
-              <div className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs flex items-center gap-2">
+              <div className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs flex items-center gap-1.5 sm:gap-2">
                 <span className="text-slate-400">نسبة الحضور:</span>
                 <span className="font-bold text-gold-400">{attendanceRate}%</span>
-                <span className="text-slate-500">({presentCount} من {stageStudents.length})</span>
+                <span className="text-slate-500 text-[11px]">({presentCount} من {stageStudents.length})</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-              <div className="relative w-full md:w-64">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 w-full md:w-auto justify-end">
+              <div className="relative w-full sm:w-64">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
@@ -614,9 +614,9 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
               <button
                 onClick={handleSaveAttendance}
                 disabled={isSavingAttendance || loadingAttendance || stageStudents.length === 0}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 whitespace-nowrap transition-all"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 whitespace-nowrap transition-all"
               >
-                <Save className="w-4 h-4" />
+                <Save className="w-4 h-4 shrink-0" />
                 <span>{isSavingAttendance ? 'جارٍ الحفظ...' : 'حفظ كشف الحضور'}</span>
               </button>
             </div>
@@ -625,7 +625,7 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
           {/* Students & Attendance Table */}
           <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
             <div className="overflow-x-auto">
-              <table className="w-full text-right text-xs">
+              <table className="w-full min-w-[700px] text-right text-xs">
                 <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
                   <tr>
                     <th className="py-3.5 px-4 font-semibold text-center w-16">حاضر؟</th>

@@ -178,12 +178,12 @@ export const TutorialsView: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Top Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 border border-brand-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+      <div className="bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 border border-brand-500/30 rounded-2xl p-4 sm:p-6 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-red-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6">
           <div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="px-3 py-1 rounded-full bg-red-500/20 text-red-300 text-xs font-semibold flex items-center gap-1.5 border border-red-500/30">
                 <Video className="w-3.5 h-3.5 text-red-400" />
                 فيديوهات شرح التطبيق
@@ -192,11 +192,11 @@ export const TutorialsView: React.FC = () => {
                 متزامن لحظياً مع تطبيق كرامتي
               </span>
             </div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Play className="w-6 h-6 text-red-500 fill-red-500" />
+            <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+              <Play className="w-5 h-5 sm:w-6 sm:h-6 text-red-500 fill-red-500" />
               إدارة شروحات وفيديوهات التطبيق
             </h1>
-            <p className="text-slate-300 text-sm mt-1 max-w-2xl leading-relaxed">
+            <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
               أضف فيديوهات من يوتيوب برابط مباشر لتظهر تلقائياً في قسم «شرح التطبيق» داخل صفحة حسابي لجميع المستخدمين والزوار، مع إمكانية التشغيل السلس داخل التطبيق.
             </p>
           </div>
@@ -204,10 +204,10 @@ export const TutorialsView: React.FC = () => {
           <button
             onClick={fetchVideos}
             disabled={isLoading}
-            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-2 transition-all self-start md:self-auto"
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center justify-center gap-2 transition-all self-stretch sm:self-auto"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            تحديث القائمة
+            <span>تحديث القائمة</span>
           </button>
         </div>
 
@@ -227,7 +227,7 @@ export const TutorialsView: React.FC = () => {
       </div>
 
       {/* Add New Video Form Card */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl">
         <h2 className="text-base font-bold text-white flex items-center gap-2 pb-4 border-b border-slate-800">
           <Plus className="w-5 h-5 text-brand-400" />
           إضافة فيديو شرح جديد من يوتيوب
@@ -306,10 +306,10 @@ export const TutorialsView: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting || !previewId}
-              className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white font-medium text-sm flex items-center gap-2 shadow-lg shadow-brand-600/30 transition-all"
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-brand-600/30 transition-all"
             >
               <Plus className="w-4 h-4" />
-              {isSubmitting ? 'جاري الحفظ...' : 'نشر الفيديو في التطبيق'}
+              <span>{isSubmitting ? 'جاري الحفظ...' : 'نشر الفيديو في التطبيق'}</span>
             </button>
           </div>
         </form>

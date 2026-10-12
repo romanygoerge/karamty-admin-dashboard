@@ -42,18 +42,18 @@ export const Modal: React.FC<ModalProps> = ({
         className={`w-full ${maxWidthClass} bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden glass-panel flex flex-col max-h-[90vh]`}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-base font-bold text-white">{title}</h3>
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-800 flex items-center justify-between">
+          <h3 className="text-sm sm:text-base font-bold text-white truncate">{title}</h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto space-y-4">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
           {children}
         </div>
       </div>

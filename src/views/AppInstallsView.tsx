@@ -385,25 +385,25 @@ export const AppInstallsView: React.FC<AppInstallsViewProps> = ({
           <p className="text-xs text-slate-400 mb-4">
             يمكنك إدخال إجمالي التحميلات المسجلة في Google Play Console ليكون هو الحد الأدنى المعتمد في كل الحسابات.
           </p>
-          <form onSubmit={handleSaveBaseline} className="flex items-center gap-3">
+          <form onSubmit={handleSaveBaseline} className="flex flex-wrap items-center gap-2 sm:gap-3">
             <input
               type="number"
               value={tempBaseline}
               onChange={(e) => setTempBaseline(e.target.value)}
-              className="px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-brand-500 w-44"
+              className="px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-brand-500 w-full sm:w-44"
               placeholder="مثال: 50"
               min="0"
             />
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium transition-colors"
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium transition-colors"
             >
               حفظ وتطبيق
             </button>
             <button
               type="button"
               onClick={() => setIsEditingBaseline(false)}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors"
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors"
             >
               إلغاء
             </button>

@@ -132,10 +132,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
         <button
           onClick={() => onNavigate('app_installs')}
-          className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs flex items-center justify-center gap-2 transition-all whitespace-nowrap shadow-lg shadow-brand-600/20 hover:scale-[1.02]"
+          className="w-full md:w-auto px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-brand-600/20 hover:scale-[1.02]"
         >
-          <DownloadCloud className="w-4 h-4" />
-          متابعة تفاصيل التثبيتات والحملات
+          <DownloadCloud className="w-4 h-4 shrink-0" />
+          <span>متابعة تفاصيل التثبيتات والحملات</span>
         </button>
       </div>
 
@@ -185,21 +185,21 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Weekly Activity Trend */}
-        <div className="lg:col-span-2 glass-panel p-6 rounded-2xl">
-          <div className="flex items-center justify-between mb-4">
+        <div className="lg:col-span-2 glass-panel p-4 sm:p-6 rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
             <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-brand-400" />
                 مؤشر نشاط وتفاعل الكنيسة الأسبوعي
               </h3>
               <p className="text-xs text-slate-400">تزامن حي لمعدلات الحضور والمشاركات عبر التطبيق</p>
             </div>
-            <span className="px-2.5 py-1 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20 text-xs font-semibold">
+            <span className="self-start sm:self-auto px-2.5 py-1 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20 text-xs font-semibold">
               مباشر من السحابة
             </span>
           </div>
 
-          <div className="h-72 w-full">
+          <div className="h-60 sm:h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={activityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -226,7 +226,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </div>
 
         {/* Roles Distribution */}
-        <div className="glass-panel p-6 rounded-2xl flex flex-col justify-between">
+        <div className="glass-panel p-4 sm:p-6 rounded-2xl flex flex-col justify-between">
           <div>
             <h3 className="text-base font-bold text-white flex items-center gap-2 mb-1">
               <Activity className="w-5 h-5 text-gold-400" />
@@ -275,7 +275,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       {/* Quick Action Cards & Live Stream */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Latest Mobile Community Posts */}
-        <div className="lg:col-span-2 glass-panel p-6 rounded-2xl">
+        <div className="lg:col-span-2 glass-panel p-4 sm:p-6 rounded-2xl">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-bold text-white flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-brand-400" />
@@ -333,7 +333,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </div>
 
         {/* Quick Operations & Status */}
-        <div className="glass-panel p-6 rounded-2xl flex flex-col justify-between">
+        <div className="glass-panel p-4 sm:p-6 rounded-2xl flex flex-col justify-between">
           <div>
             <h3 className="text-base font-bold text-white flex items-center gap-2 mb-4">
               <CalendarCheck className="w-5 h-5 text-emerald-400" />
