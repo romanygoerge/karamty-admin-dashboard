@@ -98,6 +98,13 @@ export const TutorialsView: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (successMsg) {
+      const timer = setTimeout(() => setSuccessMsg(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMsg]);
+
   const handleAddVideo = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
