@@ -17,18 +17,26 @@ import {
   Crown,
   ShieldCheck,
   Sparkles,
-  Clock
+  Clock,
+  GraduationCap
 } from 'lucide-react';
-import { Profile } from '../types';
+import { Profile, SundaySchoolStudent } from '../types';
 import { Modal } from '../components/Modal';
 import { supabase } from '../lib/supabase';
 
 interface UsersViewProps {
   profiles: Profile[];
+  students?: SundaySchoolStudent[];
+  onSelectServantForSundaySchool?: (userId: string) => void;
   onRefresh: () => void;
 }
 
-export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => {
+export const UsersView: React.FC<UsersViewProps> = ({ 
+  profiles, 
+  students = [], 
+  onSelectServantForSundaySchool, 
+  onRefresh 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -60,6 +68,19 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
   const [editChaptersRead, setEditChaptersRead] = useState(0);
   const [editChurch, setEditChurch] = useState('');
   const [editPhone, setEditPhone] = useState('');
+
+  // Map student counts per servant
+  const studentCountMap = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    students.forEach(s => {
+      if (s.user_id) {
+        map[s.user_id] = (map[s.user_id] || 0) + 1;
+      }
+    });
+    return map;
+  }, [students]);
+
+  const servantsWithStudentsCount = Object.keys(studentCountMap).length;
 
   const handleOpenSubscriptionModal = (user: Profile) => {
     setSelectedSubUser(user);
@@ -352,15 +373,45 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
         </div>
       </div>
 
+      {/* KPI Stats Row for Actual Users */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="glass-panel p-4 rounded-2xl border border-slate-800">
+          <span className="text-xs text-slate-400 font-medium">المستخدمين الفعليين بالتطبيق</span>
+          <div className="text-2xl font-bold text-white mt-1">{profiles.length}</div>
+          <span className="text-[10px] text-emerald-400">حسابات حقيقية مسجلة</span>
+        </div>
+
+        <div className="glass-panel p-4 rounded-2xl border border-slate-800">
+          <span className="text-xs text-slate-400 font-medium">الخدام ومسؤولو الخدمة</span>
+          <div className="text-2xl font-bold text-brand-400 mt-1">
+            {profiles.filter(p => p.role?.includes('خادم') || p.service?.includes('خادم') || p.role === 'admin').length}
+          </div>
+          <span className="text-[10px] text-slate-400">رتب خدمية موثقة</span>
+        </div>
+
+        <div className="glass-panel p-4 rounded-2xl border border-slate-800">
+          <span className="text-xs text-slate-400 font-medium">خدام لديهم مخدومين</span>
+          <div className="text-2xl font-bold text-gold-400 mt-1">{servantsWithStudentsCount}</div>
+          <span className="text-[10px] text-gold-400">سجلوا بيانات مخدوميهم</span>
+        </div>
+
+        <div className="glass-panel p-4 rounded-2xl border border-slate-800">
+          <span className="text-xs text-slate-400 font-medium">إجمالي مخدومي مدارس الأحد</span>
+          <div className="text-2xl font-bold text-amber-400 mt-1">{students.length}</div>
+          <span className="text-[10px] text-slate-400">موزعين على حسابات الخدام</span>
+        </div>
+      </div>
+
       {/* Users Table */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[750px] text-right text-xs">
+          <table className="w-full min-w-[850px] text-right text-xs">
             <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
               <tr>
                 <th className="py-3.5 px-4 font-semibold">المستخدم</th>
                 <th className="py-3.5 px-4 font-semibold">الكنيسة / الخدمة</th>
                 <th className="py-3.5 px-4 font-semibold">الرتبة / الدور</th>
+                <th className="py-3.5 px-4 font-semibold">المخدومين بمدارس الأحد</th>
                 <th className="py-3.5 px-4 font-semibold">الاشتراك وإلغاء الإعلانات</th>
                 <th className="py-3.5 px-4 font-semibold">رصيد النقاط</th>
                 <th className="py-3.5 px-4 font-semibold">أيام متتالية</th>
@@ -405,6 +456,22 @@ export const UsersView: React.FC<UsersViewProps> = ({ profiles, onRefresh }) => 
                       }`}>
                         {p.role || 'عضو'}
                       </span>
+                    </td>
+
+                    <td className="py-3 px-4">
+                      {studentCountMap[p.id] && studentCountMap[p.id] > 0 ? (
+                        <button
+                          onClick={() => onSelectServantForSundaySchool?.(p.id)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-500/15 text-gold-400 hover:bg-amber-500/25 border border-amber-500/30 transition-all cursor-pointer shadow-sm group"
+                          title="اضغط لعرض كشف مخدومي هذا الخادم في مدارس الأحد"
+                        >
+                          <GraduationCap className="w-3.5 h-3.5 text-gold-400 group-hover:scale-110 transition-transform" />
+                          <span>{studentCountMap[p.id]} مخدوم</span>
+                          <span className="text-[10px] text-slate-400 group-hover:text-white">عرض 🔍</span>
+                        </button>
+                      ) : (
+                        <span className="text-slate-600 text-xs">0</span>
+                      )}
                     </td>
 
                     <td className="py-3 px-4">

@@ -80,6 +80,7 @@ export interface SundaySchoolStage {
 
 export interface SundaySchoolStudent {
   id: string;
+  user_id?: string;
   stage_id: string;
   full_name: string;
   phone?: string;

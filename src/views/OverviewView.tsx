@@ -61,7 +61,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const totalExpense = validBudget.filter(b => b.type === 'expense').reduce((acc, b) => acc + Number(b.amount || 0), 0);
   const netBalance = totalIncome - totalExpense;
 
-  const servantsCount = profiles.filter(p => p.role?.includes('خادم') || p.role?.includes('أمين') || p.role?.includes('servant') || p.role === 'admin').length;
+  const servantsCount = profiles.filter(p => 
+    p.role?.includes('خادم') || 
+    p.role?.includes('أمين') || 
+    p.role?.includes('servant') || 
+    p.role === 'admin' ||
+    p.service?.includes('خادم') ||
+    p.service?.includes('خدمة') ||
+    students.some(s => s.user_id === p.id)
+  ).length;
   const membersCount = Math.max(0, profiles.length - servantsCount);
   const studentsCount = students.length;
 

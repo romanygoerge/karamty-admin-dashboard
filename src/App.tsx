@@ -23,6 +23,7 @@ export function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [unreadSupportCount, setUnreadSupportCount] = useState(0);
+  const [selectedServantId, setSelectedServantId] = useState<string | null>(null);
 
   // Central Database State
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -243,6 +244,11 @@ export function App() {
           {currentTab === 'users' && (
             <UsersView
               profiles={profiles}
+              students={students}
+              onSelectServantForSundaySchool={(userId) => {
+                setSelectedServantId(userId);
+                setCurrentTab('sunday_school');
+              }}
               onRefresh={fetchAllData}
             />
           )}
@@ -250,6 +256,8 @@ export function App() {
           {currentTab === 'sunday_school' && (
             <SundaySchoolView
               students={students}
+              profiles={profiles}
+              initialSelectedUserId={selectedServantId}
               onRefresh={fetchAllData}
             />
           )}

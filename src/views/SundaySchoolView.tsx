@@ -14,14 +14,17 @@ import {
   UploadCloud,
   ExternalLink,
   Eye,
-  BookOpen
+  BookOpen,
+  Users
 } from 'lucide-react';
-import { SundaySchoolStudent } from '../types';
+import { SundaySchoolStudent, Profile } from '../types';
 import { Modal } from '../components/Modal';
 import { supabase } from '../lib/supabase';
 
 interface SundaySchoolViewProps {
   students: SundaySchoolStudent[];
+  profiles?: Profile[];
+  initialSelectedUserId?: string | null;
   onRefresh: () => void;
 }
 
@@ -34,8 +37,15 @@ const STAGES = [
   { id: 'uni', name: 'جامعة وخريجين', legacyIds: ['university'] },
 ];
 
-export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, onRefresh }) => {
+export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ 
+  students, 
+  profiles = [], 
+  initialSelectedUserId = null, 
+  onRefresh 
+}) => {
   const [selectedStage, setSelectedStage] = useState('prim_1_2');
+  const [selectedUserId, setSelectedUserId] = useState<string | 'all'>(() => initialSelectedUserId || 'all');
+  const [studentServantUserId, setStudentServantUserId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'attendance' | 'curriculum'>('attendance');
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
@@ -46,6 +56,12 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [isSavingAttendance, setIsSavingAttendance] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialSelectedUserId) {
+      setSelectedUserId(initialSelectedUserId);
+    }
+  }, [initialSelectedUserId]);
 
   // Curriculum PDF State
   const [stageCurricula, setStageCurricula] = useState<Record<string, { pdf_url: string; pdf_title: string; stage_id?: string }>>({});
@@ -127,9 +143,42 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
     fetchAttendance();
   }, [selectedDate]);
 
+  // Lookup map of all user profiles
+  const profilesMap = React.useMemo(() => {
+    const map = new Map<string, Profile>();
+    profiles.forEach((p) => map.set(p.id, p));
+    return map;
+  }, [profiles]);
+
+  // Compute servant accounts who have registered students
+  const servantAccounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    students.forEach((s) => {
+      if (s.user_id) {
+        counts[s.user_id] = (counts[s.user_id] || 0) + 1;
+      }
+    });
+
+    return profiles
+      .map((p) => ({
+        ...p,
+        studentCount: counts[p.id] || 0,
+      }))
+      .sort((a, b) => b.studentCount - a.studentCount);
+  }, [students, profiles]);
+
+  // Isolated students filtered by selected servant account
+  const accountFilteredStudents = React.useMemo(() => {
+    if (selectedUserId === 'all') return students;
+    return students.filter((s) => s.user_id === selectedUserId);
+  }, [students, selectedUserId]);
+
+  const selectedUser = selectedUserId !== 'all' ? profilesMap.get(selectedUserId) : null;
+  const selectedUserStudentsCount = accountFilteredStudents.length;
+
   const currentStageObj = STAGES.find((s) => s.id === selectedStage) || STAGES[0];
 
-  const stageStudents = students.filter((s) => {
+  const stageStudents = accountFilteredStudents.filter((s) => {
     if (s.stage_id === selectedStage) return true;
     if (currentStageObj.legacyIds?.includes(s.stage_id)) return true;
     if (!s.stage_id && selectedStage === 'prim_1_2') return true;
@@ -263,6 +312,8 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
 
     try {
       const newId = crypto.randomUUID();
+      const targetUserId = studentServantUserId || (selectedUserId !== 'all' ? selectedUserId : null);
+
       const { error } = await supabase.from('sunday_school_students').insert({
         id: newId,
         stage_id: selectedStage,
@@ -271,6 +322,7 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
         parent_phone: studentParentPhone.trim(),
         spiritual_father: studentFather.trim(),
         notes: studentNotes.trim(),
+        user_id: targetUserId,
         created_at: new Date().toISOString(),
       });
 
@@ -282,6 +334,7 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
       setStudentParentPhone('');
       setStudentFather('');
       setStudentNotes('');
+      setStudentServantUserId('');
       onRefresh();
       setStatusMessage('تمت إضافة المخدوم بنجاح');
       setTimeout(() => setStatusMessage(null), 3000);
@@ -297,6 +350,7 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
     setStudentParentPhone(student.parent_phone || '');
     setStudentFather(student.spiritual_father || '');
     setStudentNotes(student.notes || '');
+    setStudentServantUserId(student.user_id || '');
     setIsEditStudentOpen(true);
   };
 
@@ -313,6 +367,7 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
           parent_phone: studentParentPhone.trim(),
           spiritual_father: studentFather.trim(),
           notes: studentNotes.trim(),
+          user_id: studentServantUserId || null,
         })
         .eq('id', activeStudent.id);
 
@@ -379,10 +434,87 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
         </div>
       )}
 
+      {/* Servant / User Account Isolation Selector */}
+      <div className="glass-panel p-4 rounded-2xl border border-slate-800 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                <span>تصفية وعزل المخدومين حسب حساب الخادم المسجّل</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-brand-500/10 text-brand-400 border border-brand-500/20">
+                  حسابات مستقلة
+                </span>
+              </h4>
+              <p className="text-[11px] text-slate-400">
+                اختر خادماً لعرض كشف مخدوميه الخاص به فقط، أو اختر عرض الكل لمتابعة الكشف العام
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 font-medium focus:outline-none focus:border-brand-500 max-w-[280px] sm:max-w-xs truncate"
+            >
+              <option value="all">كل الخدام والمستخدمين (عرض مجمع - {students.length} مخدوم)</option>
+              {servantAccounts.map(servant => (
+                <option key={servant.id} value={servant.id}>
+                  {servant.full_name} ({servant.studentCount} مخدوم {servant.church ? `• ${servant.church}` : ''})
+                </option>
+              ))}
+            </select>
+
+            {selectedUserId !== 'all' && (
+              <button
+                onClick={() => setSelectedUserId('all')}
+                className="px-2.5 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors whitespace-nowrap"
+                title="إلغاء التصفية وعرض الكل"
+              >
+                عرض الكل
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Selected Servant Summary Banner */}
+        {selectedUser && (
+          <div className="p-3 rounded-xl bg-gradient-to-r from-purple-950/40 via-slate-900 to-slate-900 border border-purple-500/30 flex flex-wrap items-center justify-between gap-3 text-xs animate-fadeIn">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-md">
+                {selectedUser.full_name?.charAt(0) || 'خ'}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-white text-sm">{selectedUser.full_name}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">
+                    كشف مخدومي هذا الحساب فقط
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-slate-400 text-[11px] mt-0.5">
+                  <span>{selectedUser.church || selectedUser.service || 'كنيسة قبطية'}</span>
+                  {selectedUser.phone && <span>• هاتف: {selectedUser.phone}</span>}
+                  {selectedUser.email && <span>• {selectedUser.email}</span>}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-1.5 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-300 font-bold text-xs">
+                إجمالي مخدومي هذا الحساب: {selectedUserStudentsCount} مخدوم
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Stage Selector Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {STAGES.map((stg) => {
-          const count = students.filter(
+          const count = accountFilteredStudents.filter(
             (s) => s.stage_id === stg.id || stg.legacyIds.includes(s.stage_id)
           ).length;
           const isActive = selectedStage === stg.id;
@@ -625,11 +757,12 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
           {/* Students & Attendance Table */}
           <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[700px] text-right text-xs">
+              <table className="w-full min-w-[780px] text-right text-xs">
                 <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
                   <tr>
                     <th className="py-3.5 px-4 font-semibold text-center w-16">حاضر؟</th>
                     <th className="py-3.5 px-4 font-semibold">اسم الطالب / المخدوم</th>
+                    <th className="py-3.5 px-4 font-semibold">الخادم المسجّل / الكنيسة</th>
                     <th className="py-3.5 px-4 font-semibold">هاتف الطالب</th>
                     <th className="py-3.5 px-4 font-semibold">هاتف ولي الأمر</th>
                     <th className="py-3.5 px-4 font-semibold">أب الاعتراف</th>
@@ -667,6 +800,24 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
                             </div>
                             <span>{student.full_name}</span>
                           </div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          {student.user_id && profilesMap.has(student.user_id) ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                              <div>
+                                <span className="font-bold text-slate-200 text-xs block">
+                                  {profilesMap.get(student.user_id)?.full_name}
+                                </span>
+                                <span className="text-[10px] text-slate-400 block truncate max-w-[150px]">
+                                  {profilesMap.get(student.user_id)?.church || 'كنيسة مسجلة'}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 text-[11px]">عام / غير محدد</span>
+                          )}
                         </td>
 
                         <td className="py-3 px-4 text-slate-300">
@@ -754,6 +905,25 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
             />
           </div>
 
+          <div>
+            <label className="block text-slate-400 font-semibold mb-1">الخادم / المستخدم المسؤول *</label>
+            <select
+              value={studentServantUserId || (selectedUserId !== 'all' ? selectedUserId : '')}
+              onChange={(e) => setStudentServantUserId(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500"
+            >
+              <option value="">بدون تعيين خادم محدد</option>
+              {servantAccounts.map(servant => (
+                <option key={servant.id} value={servant.id}>
+                  {servant.full_name} ({servant.church || 'الكنيسة'})
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-500 mt-1">
+              سيظهر هذا الطالب تحت حساب هذا الخادم فقط في التطبيق والداش بورد
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-400 font-semibold mb-1">رقم هاتف الطالب</label>
@@ -835,6 +1005,22 @@ export const SundaySchoolView: React.FC<SundaySchoolViewProps> = ({ students, on
               onChange={(e) => setStudentName(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-slate-400 font-semibold mb-1">الخادم / المستخدم المسؤول</label>
+            <select
+              value={studentServantUserId}
+              onChange={(e) => setStudentServantUserId(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500"
+            >
+              <option value="">بدون تعيين خادم محدد</option>
+              {servantAccounts.map(servant => (
+                <option key={servant.id} value={servant.id}>
+                  {servant.full_name} ({servant.church || 'الكنيسة'})
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
