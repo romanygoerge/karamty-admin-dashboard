@@ -195,6 +195,13 @@ export const SupportView: React.FC = () => {
 
       if (data) {
         setMessages(prev => [...prev, data]);
+        setTickets(prev => prev.map(t => t.id === selectedTicketId ? {
+          ...t,
+          last_message: textToSend.trim(),
+          last_message_at: new Date().toISOString(),
+          last_sender_type: 'admin',
+          unread_for_user: (t.unread_for_user || 0) + 1,
+        } : t));
       }
       setReplyText('');
       showStatusNotice('تم إرسال الرد للمستخدم بنجاح');
