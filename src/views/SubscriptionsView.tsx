@@ -16,10 +16,13 @@ import {
   Copy,
   Check,
   Edit3,
-  Trash2
+  Trash2,
+  Users,
+  Settings
 } from 'lucide-react';
 import { supabase, SUPABASE_URL } from '../lib/supabase';
-import { PaymentRequest } from '../types';
+import { PaymentRequest, SubscriptionPlan } from '../types';
+import { SubscriptionPlansManager } from '../components/SubscriptionPlansManager';
 
 interface SubscriptionsViewProps {
   onUpdatePendingCount?: (count: number) => void;
@@ -27,19 +30,36 @@ interface SubscriptionsViewProps {
 
 export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePendingCount }) => {
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'pending' | 'subscriptions' | 'donations' | 'all'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'subscriptions' | 'donations' | 'plans' | 'all'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null);
   
   // Activation Modal State
   const [activationTarget, setActivationTarget] = useState<PaymentRequest | null>(null);
   const [selectedMonths, setSelectedMonths] = useState<number>(1);
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const [selectedPlan, setSelectedPlan] = useState<string>('monthly');
+  const [selectedMaxMembers, setSelectedMaxMembers] = useState<number>(1);
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [adminNotes, setAdminNotes] = useState('');
   const [isSubmittingActivation, setIsSubmittingActivation] = useState(false);
   const [copiedNumber, setCopiedNumber] = useState(false);
+
+  // Fetch Plans from Database
+  const fetchPlans = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (!error && data) {
+        setPlans(data);
+      }
+    } catch (e) {
+      console.error('Error fetching subscription plans:', e);
+    }
+  };
 
   // Fetch Requests from Edge Function / Database
   const fetchRequests = async () => {
@@ -66,12 +86,16 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
 
   useEffect(() => {
     fetchRequests();
+    fetchPlans();
 
-    // Setup Supabase Realtime Listener for instant payment receipts & notifications
+    // Setup Supabase Realtime Listener for instant payment receipts, notifications, and plans
     const channel = supabase
-      .channel('dashboard-payment-requests')
+      .channel('dashboard-subscriptions-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'service_budget_items' }, () => {
         fetchRequests();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscription_plans' }, () => {
+        fetchPlans();
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: any) => {
         if (payload?.new?.type === 'payment_request') {
@@ -153,6 +177,8 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
 
       let success = false;
       try {
+        const isTeam = selectedPlan.startsWith('premium_') || selectedMaxMembers > 1;
+
         const res = await fetch(`${SUPABASE_URL}/functions/v1/handle-payment-request`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -162,6 +188,7 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
             user_id: activationTarget.user_id,
             plan: selectedPlan,
             months: selectedMonths,
+            max_members: selectedMaxMembers,
             status: 'approved',
             admin_notes: adminNotes,
           }),
@@ -186,11 +213,15 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
           endDate = d.toISOString();
         }
 
+        const isTeam = selectedPlan.startsWith('premium_') || selectedMaxMembers > 1;
+
         if (activationTarget.user_id) {
           await supabase.from('profiles').update({
             is_subscribed: true,
             subscription_plan: selectedPlan,
             subscription_end_date: endDate,
+            is_team_owner: isTeam,
+            max_team_members: isTeam ? selectedMaxMembers : 0,
             updated_at: new Date().toISOString()
           }).eq('id', activationTarget.user_id);
         }
@@ -200,6 +231,7 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
             status: 'approved',
             duration_months: selectedMonths,
             plan: selectedPlan,
+            max_members: selectedMaxMembers,
             admin_notes: adminNotes,
             reviewed_at: new Date().toISOString()
           })
@@ -549,6 +581,21 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
           </button>
 
           <button
+            onClick={() => setActiveTab('plans')}
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5 sm:gap-2 ${
+              activeTab === 'plans'
+                ? 'bg-gradient-to-r from-amber-500 to-purple-600 text-slate-950 font-bold shadow-md shadow-purple-500/20'
+                : 'text-amber-400/90 hover:text-amber-300'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>إدارة باقات وأسعار الاشتراكات</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-400/20 text-amber-200 font-bold">
+              لحظي ⚡
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('all')}
             className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
               activeTab === 'all'
@@ -561,26 +608,31 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
         </div>
 
         {/* Search Bar */}
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="بحث بالاسم، الهاتف أو الملاحظات..."
-            className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pr-10 pl-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500"
-          />
-        </div>
+        {activeTab !== 'plans' && (
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="بحث بالاسم، الهاتف أو الملاحظات..."
+              className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pr-10 pl-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500"
+            />
+          </div>
+        )}
       </div>
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* 4. Requests Table / Cards */}
+      {/* 4. Requests Table OR Live Plans Manager */}
       {/* ═══════════════════════════════════════════════════════════ */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-        {isLoading ? (
-          <div className="p-12 text-center text-slate-400">
-            <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            جاري تحميل سجل الاشتراكات والتحويلات...
+      {activeTab === 'plans' ? (
+        <SubscriptionPlansManager plans={plans} onRefreshPlans={fetchPlans} />
+      ) : (
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          {isLoading ? (
+            <div className="p-12 text-center text-slate-400">
+              <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+              جاري تحميل سجل الاشتراكات والتحويلات...
           </div>
         ) : filteredRequests.length === 0 ? (
           <div className="p-12 text-center text-slate-400">
@@ -625,10 +677,17 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
                       <td className="p-4">
                         <div className="flex items-center gap-1.5">
                           {isSub ? (
-                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
-                              <Crown className="w-3.5 h-3.5 text-amber-400" />
-                              اشتراك {req.plan === 'yearly' ? 'سنوي' : 'شهري'}
-                            </span>
+                            req.plan?.startsWith('premium_') ? (
+                              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                <Users className="w-3.5 h-3.5 text-amber-400" />
+                                كرمتي بريميوم ({req.plan.replace('premium_', '')} أفراد) 👥
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                                <Crown className="w-3.5 h-3.5 text-amber-400" />
+                                كرمتي بلس ({req.plan === 'yearly' ? 'سنوي' : 'شهري'})
+                              </span>
+                            )
                           ) : (
                             <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                               <Heart className="w-3.5 h-3.5 text-emerald-400" />
@@ -781,6 +840,7 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
           </div>
         )}
       </div>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
       {/* 5. Activation Modal (Duration Picker) */}
@@ -800,7 +860,7 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
                 <Crown className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">تفعيل اشتراك كرمتي بلس (إزالة الإعلانات)</h3>
+                <h3 className="text-lg font-bold text-white">تفعيل اشتراك كرمتي بلس / بريميوم</h3>
                 <p className="text-xs text-slate-400">للمستخدم: <span className="text-amber-300 font-bold">{activationTarget.user_name}</span></p>
               </div>
             </div>
@@ -808,36 +868,75 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
             <div className="space-y-4 my-5">
               {/* Plan Choice */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-2">نوع الباقة:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedPlan('monthly');
-                      setSelectedMonths(1);
-                    }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
-                      selectedPlan === 'monthly'
-                        ? 'bg-purple-600 border-purple-400 text-white'
-                        : 'bg-slate-800/80 border-slate-700 text-slate-300'
-                    }`}
-                  >
-                    باقة شهرية (99 ج.م)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedPlan('yearly');
-                      setSelectedMonths(12);
-                    }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
-                      selectedPlan === 'yearly'
-                        ? 'bg-purple-600 border-purple-400 text-white'
-                        : 'bg-slate-800/80 border-slate-700 text-slate-300'
-                    }`}
-                  >
-                    باقة سنوية (599 ج.م) ⭐
-                  </button>
+                <label className="block text-xs font-semibold text-slate-300 mb-2">نوع الباقة المراد تفعيلها للمستخدم:</label>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1.5 border border-slate-800 rounded-xl bg-slate-950/40">
+                  {plans.length > 0 ? (
+                    plans.map((p) => {
+                      const isSelected = selectedPlan === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPlan(p.id);
+                            setSelectedMonths(p.period === 'monthly' ? 1 : 12);
+                            setSelectedMaxMembers(p.max_members || 1);
+                          }}
+                          className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-right flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-purple-600 border-purple-400 text-white shadow-md'
+                              : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="truncate">{p.name}</span>
+                            {p.category === 'team' && <Users className="w-3.5 h-3.5 text-amber-300 shrink-0" />}
+                          </div>
+                          <div className="text-[11px] opacity-80 mt-1 flex items-center justify-between">
+                            <span>{p.price} ج.م</span>
+                            {p.category === 'team' ? (
+                              <span className="text-amber-300">({p.max_members} أفراد)</span>
+                            ) : (
+                              <span>{p.period === 'monthly' ? 'شهري' : 'سنوي'}</span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPlan('monthly');
+                          setSelectedMonths(1);
+                          setSelectedMaxMembers(1);
+                        }}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                          selectedPlan === 'monthly'
+                            ? 'bg-purple-600 border-purple-400 text-white'
+                            : 'bg-slate-800/80 border-slate-700 text-slate-300'
+                        }`}
+                      >
+                        باقة شهرية (99 ج.م)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPlan('yearly');
+                          setSelectedMonths(12);
+                          setSelectedMaxMembers(1);
+                        }}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                          selectedPlan === 'yearly'
+                            ? 'bg-purple-600 border-purple-400 text-white'
+                            : 'bg-slate-800/80 border-slate-700 text-slate-300'
+                        }`}
+                      >
+                        باقة سنوية (599 ج.م) ⭐
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 

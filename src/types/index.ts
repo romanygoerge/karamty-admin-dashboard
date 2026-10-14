@@ -29,7 +29,7 @@ export interface PaymentRequest {
   user_phone?: string;
   user_email?: string;
   type: 'subscription' | 'donation';
-  plan: 'monthly' | 'yearly' | 'custom';
+  plan: string;
   amount: number;
   sender_wallet_or_phone?: string;
   receipt_url?: string;
@@ -39,6 +39,30 @@ export interface PaymentRequest {
   admin_notes?: string;
   created_at: string;
   reviewed_at?: string;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  category: 'individual' | 'team';
+  max_members: number;
+  price: number;
+  period: 'monthly' | 'yearly';
+  description?: string;
+  badge?: string;
+  features?: string[];
+  sort_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SubscriptionTeamMember {
+  id: string;
+  owner_id: string;
+  member_id: string;
+  added_at: string;
+  profiles?: Profile;
 }
 
 export interface CommunityPost {
