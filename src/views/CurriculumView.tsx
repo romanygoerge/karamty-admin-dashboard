@@ -13,7 +13,15 @@ import {
   RefreshCw,
   Search,
   CheckCircle2,
-  Clock
+  Clock,
+  Plus,
+  X,
+  Edit2,
+  Layers,
+  FolderOpen,
+  ArrowUp,
+  ArrowDown,
+  Files
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -26,67 +34,101 @@ export interface StageCurriculum {
   sort_order?: number;
 }
 
+export interface CurriculumPdfLesson {
+  id: string;
+  stage_id?: string;
+  stage_code: string;
+  title: string;
+  pdf_url: string;
+  file_name?: string | null;
+  file_size?: string | null;
+  week_number?: string | null;
+  sort_order?: number;
+  created_at?: string;
+}
+
 const STAGES_CONFIG = [
-  { id: 'kg', code: 'kg', name: 'مرحلة حضانة', icon: '👶', subtitle: 'قصص كتابية وأنشطة وتلوين للأطفال' },
-  { id: 'prim_1_2', code: 'prim_1_2', name: 'مرحلة أولى وثانية ابتدائي', icon: '🎒', subtitle: 'دروس تمهيدية وعقيدة مبسطة' },
-  { id: 'prim_3_4', code: 'prim_3_4', name: 'مرحلة ثالثة ورابعة ابتدائي', icon: '📖', subtitle: 'شخصيات العهد القديم والجديد والطقس' },
-  { id: 'prim_5_6', code: 'prim_5_6', name: 'مرحلة خامسة وسادسة ابتدائي', icon: '📚', subtitle: 'دراسات كتابية وسير القديسين والطقوس' },
-  { id: 'prep_sec', code: 'prep_sec', name: 'مرحلة إعدادي وثانوي', icon: '🎓', subtitle: 'عقيدة أورثوذكسية وتاريخ كنيسة وحياة روحية' },
-  { id: 'uni', code: 'uni', name: 'مرحلة جامعة وخريجين', icon: '🏛️', subtitle: 'أبحاث ودراسات لاهوتية وخدمة متقدمة' },
+  { id: '11111111-0000-0000-0000-000000000001', code: 'kg', name: 'مرحلة حضانة', icon: '👶', subtitle: 'قصص كتابية وأنشطة وتلوين للأطفال' },
+  { id: '11111111-0000-0000-0000-000000000002', code: 'prim_1_2', name: 'مرحلة أولى وثانية ابتدائي', icon: '🎒', subtitle: 'دروس تمهيدية وعقيدة مبسطة' },
+  { id: '11111111-0000-0000-0000-000000000003', code: 'prim_3_4', name: 'مرحلة ثالثة ورابعة ابتدائي', icon: '📖', subtitle: 'شخصيات العهد القديم والجديد والطقس' },
+  { id: '11111111-0000-0000-0000-000000000004', code: 'prim_5_6', name: 'مرحلة خامسة وسادسة ابتدائي', icon: '📚', subtitle: 'دراسات كتابية وسير القديسين والطقوس' },
+  { id: '11111111-0000-0000-0000-000000000005', code: 'prep_sec', name: 'مرحلة إعدادي وثانوي', icon: '🎓', subtitle: 'عقيدة أورثوذكسية وتاريخ كنيسة وحياة روحية' },
+  { id: '11111111-0000-0000-0000-000000000006', code: 'uni', name: 'مرحلة جامعة وخريجين', icon: '🏛️', subtitle: 'أبحاث ودراسات لاهوتية وخدمة متقدمة' },
 ];
 
 export const CurriculumView: React.FC = () => {
   const [stages, setStages] = useState<Record<string, StageCurriculum>>({});
+  const [lessons, setLessons] = useState<CurriculumPdfLesson[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
-  const [savingFor, setSavingFor] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'uploaded' | 'missing'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStageFilter, setSelectedStageFilter] = useState<'all' | string>('all');
 
-  // Title edit buffer
-  const [titles, setTitles] = useState<Record<string, string>>({});
+  // Add Lesson Modal State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [targetStageCode, setTargetStageCode] = useState('kg');
+  const [newLessonTitle, setNewLessonTitle] = useState('');
+  const [newLessonWeek, setNewLessonWeek] = useState('');
+  const [newLessonUrl, setNewLessonUrl] = useState('');
+  const [selectedPdfFiles, setSelectedPdfFiles] = useState<File[]>([]);
+  const [isSubmittingLesson, setIsSubmittingLesson] = useState(false);
+  const [quickUploadingStage, setQuickUploadingStage] = useState<string | null>(null);
+  const [uploadProgressText, setUploadProgressText] = useState<string | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<string | null>(null);
 
-  const fetchStages = async () => {
+  // Edit Lesson State
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [editingLessonTitle, setEditingLessonTitle] = useState('');
+  const [editingLessonWeek, setEditingLessonWeek] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // 1. Fetch Stages
+      const { data: stagesData, error: stagesError } = await supabase
         .from('sunday_school_stages')
         .select('id, stage_code, name, pdf_url, pdf_title, sort_order')
         .order('sort_order', { ascending: true });
 
-      if (error) throw error;
+      if (stagesError) throw stagesError;
 
-      if (data) {
-        const stageMap: Record<string, StageCurriculum> = {};
-        const titleMap: Record<string, string> = {};
-
-        data.forEach((row: any) => {
+      const stageMap: Record<string, StageCurriculum> = {};
+      if (stagesData) {
+        stagesData.forEach((row: any) => {
           const code = row.stage_code || row.id;
           stageMap[code] = row;
-          titleMap[code] = row.pdf_title || `منهج ${row.name} - مدارس الأحد`;
         });
+      }
 
-        // Ensure all 6 config stages exist in map
-        STAGES_CONFIG.forEach((cfg) => {
-          if (!stageMap[cfg.code]) {
-            stageMap[cfg.code] = {
-              id: cfg.id,
-              stage_code: cfg.code,
-              name: cfg.name,
-              pdf_url: null,
-              pdf_title: null,
-            };
-            titleMap[cfg.code] = `منهج ${cfg.name} - مدارس الأحد`;
-          }
-        });
+      STAGES_CONFIG.forEach((cfg) => {
+        if (!stageMap[cfg.code]) {
+          stageMap[cfg.code] = {
+            id: cfg.id,
+            stage_code: cfg.code,
+            name: cfg.name,
+            pdf_url: null,
+            pdf_title: null,
+          };
+        }
+      });
+      setStages(stageMap);
 
-        setStages(stageMap);
-        setTitles(titleMap);
+      // 2. Fetch Multiple Curriculum Lessons
+      const { data: lessonsData, error: lessonsError } = await supabase
+        .from('sunday_school_curriculum_lessons')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+
+      if (lessonsError) throw lessonsError;
+
+      if (lessonsData) {
+        setLessons(lessonsData);
       }
     } catch (err: any) {
-      console.error('Error fetching stages:', err);
+      console.error('Error fetching curriculum data:', err);
       setErrorMessage('فشل في جلب بيانات المناهج: ' + err.message);
     } finally {
       setLoading(false);
@@ -94,13 +136,16 @@ export const CurriculumView: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchStages();
+    fetchData();
 
-    // Subscribe to realtime updates on sunday_school_stages
+    // Subscribe to realtime updates on both tables
     const channel = supabase
-      .channel('stages-curriculum-sync')
+      .channel('multi-curriculum-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sunday_school_curriculum_lessons' }, () => {
+        fetchData();
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sunday_school_stages' }, () => {
-        fetchStages();
+        fetchData();
       })
       .subscribe();
 
@@ -109,156 +154,380 @@ export const CurriculumView: React.FC = () => {
     };
   }, []);
 
-  const handleUploadFile = async (stageCode: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const openAddModal = (stageCode?: string) => {
+    if (stageCode) {
+      setTargetStageCode(stageCode);
+    }
+    const currentStageLessons = lessons.filter(l => l.stage_code === (stageCode || targetStageCode));
+    const nextLessonNum = currentStageLessons.length + 1;
+    setNewLessonTitle(`الدرس ${nextLessonNum}`);
+    setNewLessonWeek(`الدرس ${nextLessonNum}`);
+    setNewLessonUrl('');
+    setSelectedPdfFiles([]);
+    setIsAddModalOpen(true);
+  };
 
-    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      alert('يرجى اختيار ملف بصيغة PDF فقط');
+  const handleCreateLesson = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLessonTitle.trim()) {
+      alert('يرجى إدخال عنوان للدرس');
       return;
     }
 
-    setUploadingFor(stageCode);
+    if (selectedPdfFiles.length === 0 && !newLessonUrl.trim()) {
+      alert('يرجى اختيار ملف PDF للرفع أو إدخال رابط مباشر');
+      return;
+    }
+
+    setIsSubmittingLesson(true);
     setErrorMessage(null);
+    setUploadProgressText(null);
 
     try {
-      const cleanFileName = `${stageCode}_${Date.now()}.pdf`;
-      const filePath = `curricula/${cleanFileName}`;
+      const stageObj = STAGES_CONFIG.find(s => s.code === targetStageCode);
+      const stageId = stages[targetStageCode]?.id || stageObj?.id;
+      let currentLessonsCount = lessons.filter(l => l.stage_code === targetStageCode).length;
 
-      // 1. Upload to Supabase Storage Bucket
-      const { error: uploadErr } = await supabase.storage
-        .from('curriculum_pdfs')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true,
+      // Case A: Multiple PDF Files Selected in Modal
+      if (selectedPdfFiles.length > 1) {
+        let successCount = 0;
+        for (let i = 0; i < selectedPdfFiles.length; i++) {
+          const file = selectedPdfFiles[i];
+          setUploadProgressText(`جارٍ رفع ${i + 1} من ${selectedPdfFiles.length}: (${file.name})...`);
+
+          const cleanFileName = `${targetStageCode}_lesson_${Date.now()}_${i + 1}.pdf`;
+          const filePath = `curricula/${cleanFileName}`;
+
+          const { error: uploadErr } = await supabase.storage
+            .from('curriculum_pdfs')
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: true,
+            });
+
+          if (uploadErr) {
+            console.error(`Upload error for ${file.name}:`, uploadErr);
+            continue;
+          }
+
+          const { data: urlData } = supabase.storage
+            .from('curriculum_pdfs')
+            .getPublicUrl(filePath);
+
+          currentLessonsCount++;
+          const autoTitle = file.name.replace(/\.[^/.]+$/, '').trim() || `${newLessonTitle.trim()} - الجزء ${i + 1}`;
+          const fileSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+
+          const { error: insertErr } = await supabase
+            .from('sunday_school_curriculum_lessons')
+            .insert({
+              stage_id: stageId,
+              stage_code: targetStageCode,
+              title: autoTitle,
+              pdf_url: urlData.publicUrl,
+              file_name: file.name,
+              file_size: fileSize,
+              week_number: `الدرس ${currentLessonsCount}`,
+              sort_order: currentLessonsCount,
+            });
+
+          if (!insertErr) {
+            successCount++;
+            if (!stages[targetStageCode]?.pdf_url) {
+              await supabase
+                .from('sunday_school_stages')
+                .update({ pdf_url: urlData.publicUrl, pdf_title: autoTitle })
+                .eq('stage_code', targetStageCode);
+            }
+          }
+        }
+
+        setSuccessMessage(`تم بنجاح رفع وإضافة ${successCount} دروس لمرحلة (${stageObj?.name || targetStageCode})!`);
+        setTimeout(() => setSuccessMessage(null), 5000);
+        setIsAddModalOpen(false);
+        fetchData();
+        return;
+      }
+
+      // Case B: Single File or Direct URL
+      let finalPdfUrl = newLessonUrl.trim();
+      let fileName: string | null = null;
+      let fileSize: string | null = null;
+
+      if (selectedPdfFiles.length === 1) {
+        const file = selectedPdfFiles[0];
+        fileName = file.name;
+        fileSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+
+        const cleanFileName = `${targetStageCode}_lesson_${Date.now()}.pdf`;
+        const filePath = `curricula/${cleanFileName}`;
+
+        const { error: uploadErr } = await supabase.storage
+          .from('curriculum_pdfs')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: true,
+          });
+
+        if (uploadErr) throw uploadErr;
+
+        const { data: urlData } = supabase.storage
+          .from('curriculum_pdfs')
+          .getPublicUrl(filePath);
+
+        finalPdfUrl = urlData.publicUrl;
+      }
+
+      currentLessonsCount++;
+
+      const { error: insertErr } = await supabase
+        .from('sunday_school_curriculum_lessons')
+        .insert({
+          stage_id: stageId,
+          stage_code: targetStageCode,
+          title: newLessonTitle.trim(),
+          pdf_url: finalPdfUrl,
+          file_name: fileName,
+          file_size: fileSize,
+          week_number: newLessonWeek.trim() || `الدرس ${currentLessonsCount}`,
+          sort_order: currentLessonsCount,
         });
 
-      if (uploadErr) throw uploadErr;
+      if (insertErr) throw insertErr;
 
-      // 2. Get Public URL
-      const { data: urlData } = supabase.storage
-        .from('curriculum_pdfs')
-        .getPublicUrl(filePath);
+      // Keep sunday_school_stages fallback in sync
+      if (!stages[targetStageCode]?.pdf_url) {
+        await supabase
+          .from('sunday_school_stages')
+          .update({
+            pdf_url: finalPdfUrl,
+            pdf_title: newLessonTitle.trim(),
+          })
+          .eq('stage_code', targetStageCode);
+      }
 
-      const publicUrl = urlData.publicUrl;
-      const currentTitle = titles[stageCode]?.trim() || `منهج ${stages[stageCode]?.name || stageCode} - مدارس الأحد`;
-
-      // 3. Update Database Record Immediately
-      const { error: updateErr } = await supabase
-        .from('sunday_school_stages')
-        .update({
-          pdf_url: publicUrl,
-          pdf_title: currentTitle,
-        })
-        .eq('stage_code', stageCode);
-
-      if (updateErr) throw updateErr;
-
-      // Update local state
-      setStages((prev) => ({
-        ...prev,
-        [stageCode]: {
-          ...prev[stageCode],
-          pdf_url: publicUrl,
-          pdf_title: currentTitle,
-        },
-      }));
-
-      const stageName = stages[stageCode]?.name || STAGES_CONFIG.find(s => s.code === stageCode)?.name || stageCode;
-      setSuccessMessage(`تم رفع وتفعيل منهج (${stageName}) بنجاح! سيظهر للمستخدمين في التطبيق خيار التحميل والقراءة الفورية.`);
+      setSuccessMessage(`تمت إضافة الدرس "${newLessonTitle.trim()}" بنجاح! سيظهر للمستخدمين في التطبيق فوراً.`);
       setTimeout(() => setSuccessMessage(null), 5000);
+
+      setIsAddModalOpen(false);
+      fetchData();
     } catch (err: any) {
-      console.error('Upload error:', err);
-      setErrorMessage('خطأ أثناء رفع الملف: ' + err.message);
+      console.error('Error creating lesson:', err);
+      setErrorMessage('فشل في إضافة الدرس: ' + (err.message || err));
     } finally {
-      setUploadingFor(null);
-      e.target.value = '';
+      setIsSubmittingLesson(false);
+      setUploadProgressText(null);
     }
   };
 
-  const handleSaveTitle = async (stageCode: string) => {
-    setSavingFor(stageCode);
-    setErrorMessage(null);
-    try {
-      const titleToSave = titles[stageCode]?.trim() || '';
-      const { error } = await supabase
-        .from('sunday_school_stages')
-        .update({ pdf_title: titleToSave })
-        .eq('stage_code', stageCode);
+  const handleUploadFilesForStage = async (stageCode: string, files: FileList | File[]) => {
+    const pdfFiles = Array.from(files).filter(
+      (f) => f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf'
+    );
 
-      if (error) throw error;
-
-      setStages((prev) => ({
-        ...prev,
-        [stageCode]: {
-          ...prev[stageCode],
-          pdf_title: titleToSave,
-        },
-      }));
-
-      setSuccessMessage('تم حفظ عنوان المنهج بنجاح');
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err: any) {
-      setErrorMessage('فشل في حفظ العنوان: ' + err.message);
-    } finally {
-      setSavingFor(null);
-    }
-  };
-
-  const handleDeletePdf = async (stageCode: string, stageName: string) => {
-    if (!confirm(`هل أنت متأكد من إزالة ملف الـ PDF لمرحلة (${stageName}) من التطبيق؟`)) {
+    if (pdfFiles.length === 0) {
+      alert('يرجى اختيار ملفات بصيغة PDF فقط');
       return;
     }
 
-    setSavingFor(stageCode);
+    setQuickUploadingStage(stageCode);
+    setErrorMessage(null);
+
+    const stageObj = STAGES_CONFIG.find((s) => s.code === stageCode);
+    const stageId = stages[stageCode]?.id || stageObj?.id;
+    let currentCount = lessons.filter((l) => l.stage_code === stageCode).length;
+
+    let successCount = 0;
+    try {
+      for (let i = 0; i < pdfFiles.length; i++) {
+        const file = pdfFiles[i];
+        setUploadProgressText(`جارٍ رفع ${i + 1} من ${pdfFiles.length}: (${file.name})...`);
+
+        const cleanFileName = `${stageCode}_lesson_${Date.now()}_${i + 1}.pdf`;
+        const filePath = `curricula/${cleanFileName}`;
+
+        const { error: uploadErr } = await supabase.storage
+          .from('curriculum_pdfs')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: true,
+          });
+
+        if (uploadErr) {
+          console.error(`Error uploading ${file.name}:`, uploadErr);
+          continue;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('curriculum_pdfs')
+          .getPublicUrl(filePath);
+
+        const finalPdfUrl = urlData.publicUrl;
+        currentCount++;
+        const autoTitle = file.name.replace(/\.[^/.]+$/, '').trim() || `الدرس ${currentCount}`;
+        const fileSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+
+        const { error: insertErr } = await supabase
+          .from('sunday_school_curriculum_lessons')
+          .insert({
+            stage_id: stageId,
+            stage_code: stageCode,
+            title: autoTitle,
+            pdf_url: finalPdfUrl,
+            file_name: file.name,
+            file_size: fileSize,
+            week_number: `الدرس ${currentCount}`,
+            sort_order: currentCount,
+          });
+
+        if (insertErr) {
+          console.error(`Error inserting lesson ${autoTitle}:`, insertErr);
+        } else {
+          successCount++;
+          if (currentCount === 1 || !stages[stageCode]?.pdf_url) {
+            await supabase
+              .from('sunday_school_stages')
+              .update({
+                pdf_url: finalPdfUrl,
+                pdf_title: autoTitle,
+              })
+              .eq('stage_code', stageCode);
+          }
+        }
+      }
+
+      if (successCount > 0) {
+        setSuccessMessage(`تم بنجاح رفع وإضافة ${successCount} درس PDF لمرحلة (${stageObj?.name || stageCode})! ستظهر في التطبيق فوراً.`);
+        setTimeout(() => setSuccessMessage(null), 5000);
+        fetchData();
+      } else {
+        setErrorMessage('تعذر رفع الملفات المحددة، يرجى المحاولة مرة أخرى.');
+      }
+    } catch (err: any) {
+      console.error('Multi upload error:', err);
+      setErrorMessage('خطأ أثناء الرفع: ' + (err.message || err));
+    } finally {
+      setQuickUploadingStage(null);
+      setUploadProgressText(null);
+    }
+  };
+
+  const handleMoveLesson = async (lesson: CurriculumPdfLesson, direction: 'up' | 'down') => {
+    const stageLessons = lessons
+      .filter((l) => l.stage_code === lesson.stage_code)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+    const currentIndex = stageLessons.findIndex((l) => l.id === lesson.id);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= stageLessons.length) return;
+
+    const targetLesson = stageLessons[targetIndex];
+    const currentOrder = lesson.sort_order || currentIndex + 1;
+    const targetOrder = targetLesson.sort_order || targetIndex + 1;
+
+    try {
+      await Promise.all([
+        supabase.from('sunday_school_curriculum_lessons').update({ sort_order: targetOrder }).eq('id', lesson.id),
+        supabase.from('sunday_school_curriculum_lessons').update({ sort_order: currentOrder }).eq('id', targetLesson.id),
+      ]);
+      fetchData();
+    } catch (err: any) {
+      console.error('Error reordering lessons:', err);
+    }
+  };
+
+  const handleDeleteLesson = async (lesson: CurriculumPdfLesson) => {
+    if (!confirm(`هل أنت متأكد من حذف الدرس "${lesson.title}"؟ سيتم حذفه من التطبيق وقاعدة البيانات نهائياً.`)) {
+      return;
+    }
+
     try {
       const { error } = await supabase
-        .from('sunday_school_stages')
-        .update({
-          pdf_url: null,
-          pdf_title: null,
-        })
-        .eq('stage_code', stageCode);
+        .from('sunday_school_curriculum_lessons')
+        .delete()
+        .eq('id', lesson.id);
 
       if (error) throw error;
 
-      setStages((prev) => ({
-        ...prev,
-        [stageCode]: {
-          ...prev[stageCode],
-          pdf_url: null,
-          pdf_title: null,
-        },
-      }));
+      // Check if this was the last lesson, if so clear or update stages table
+      const remainingForStage = lessons.filter(l => l.stage_code === lesson.stage_code && l.id !== lesson.id);
+      if (remainingForStage.length === 0) {
+        await supabase
+          .from('sunday_school_stages')
+          .update({ pdf_url: null, pdf_title: null })
+          .eq('stage_code', lesson.stage_code);
+      } else {
+        await supabase
+          .from('sunday_school_stages')
+          .update({
+            pdf_url: remainingForStage[0].pdf_url,
+            pdf_title: remainingForStage[0].title,
+          })
+          .eq('stage_code', lesson.stage_code);
+      }
 
-      setSuccessMessage(`تم حذف ملف منهج (${stageName}) من التطبيق بنجاح.`);
+      setSuccessMessage(`تم حذف الدرس "${lesson.title}" بنجاح.`);
       setTimeout(() => setSuccessMessage(null), 3000);
+      fetchData();
     } catch (err: any) {
-      setErrorMessage('فشل في إزالة الملف: ' + err.message);
+      setErrorMessage('فشل في حذف الدرس: ' + err.message);
+    }
+  };
+
+  const handleStartEditLesson = (lesson: CurriculumPdfLesson) => {
+    setEditingLessonId(lesson.id);
+    setEditingLessonTitle(lesson.title);
+    setEditingLessonWeek(lesson.week_number || '');
+  };
+
+  const handleSaveLessonEdit = async (lessonId: string) => {
+    if (!editingLessonTitle.trim()) return;
+    setIsSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from('sunday_school_curriculum_lessons')
+        .update({
+          title: editingLessonTitle.trim(),
+          week_number: editingLessonWeek.trim() || null,
+        })
+        .eq('id', lessonId);
+
+      if (error) throw error;
+
+      setEditingLessonId(null);
+      setSuccessMessage('تم تحديث بيانات الدرس بنجاح');
+      setTimeout(() => setSuccessMessage(null), 3000);
+      fetchData();
+    } catch (err: any) {
+      setErrorMessage('فشل في حفظ التعديل: ' + err.message);
     } finally {
-      setSavingFor(null);
+      setIsSavingEdit(false);
     }
   };
 
   // Stats
   const totalStages = STAGES_CONFIG.length;
-  const uploadedCount = STAGES_CONFIG.filter((s) => !!stages[s.code]?.pdf_url).length;
-  const missingCount = totalStages - uploadedCount;
+  const totalLessonsCount = lessons.length;
+  const stagesWithLessonsCount = STAGES_CONFIG.filter(
+    (s) => lessons.some((l) => l.stage_code === s.code)
+  ).length;
 
-  // Filtered stages
+  // Filtered Stages
   const filteredStages = STAGES_CONFIG.filter((s) => {
-    const stageData = stages[s.code];
-    const hasPdf = !!stageData?.pdf_url;
-
-    if (filter === 'uploaded' && !hasPdf) return false;
-    if (filter === 'missing' && hasPdf) return false;
+    if (selectedStageFilter !== 'all' && s.code !== selectedStageFilter) {
+      return false;
+    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchName = s.name.toLowerCase().includes(q);
-      const matchTitle = (stageData?.pdf_title || '').toLowerCase().includes(q);
       const matchSub = s.subtitle.toLowerCase().includes(q);
-      return matchName || matchTitle || matchSub;
+      const hasMatchingLesson = lessons.some(
+        (l) => l.stage_code === s.code && l.title.toLowerCase().includes(q)
+      );
+      return matchName || matchSub || hasMatchingLesson;
     }
 
     return true;
@@ -274,23 +543,31 @@ export const CurriculumView: React.FC = () => {
           </div>
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <span>إدارة المناهج والدروس (ملفات PDF)</span>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 font-semibold">
-                مزامنة حية مع الموبايل
+              <span>إدارة مناهج ودروس مدارس الأحد (PDF)</span>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold">
+                دعم رفع أكثر من درس لكل مرحلة
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              ارفع ملف الـ PDF الخاص بكل مرحلة عمرية. يظهر في التطبيق فوراً بدون دمجه بالـ APK مع خيار التحميل والحفظ أوفلاين والقراءة في نفس الصفحة.
+              يمكنك هنا إضافة وإدارة دروس متعددة بصيغة PDF لكل مرحلة عمرية. الدروس تُحفظ في قاعدة البيانات وتظهر فوراً في تطبيق الموبايل مع إمكانية التنزيل والقراءة أوفلاين.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchStages}
+            onClick={() => openAddModal()}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold shadow-lg shadow-brand-600/25 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>إضافة درس PDF جديد</span>
+          </button>
+
+          <button
+            onClick={fetchData}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 text-xs font-semibold transition-all"
-            title="تحديث البيانات من السحابة"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 text-xs font-semibold transition-all"
+            title="تحديث البيانات"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-400' : ''}`} />
             <span>تحديث</span>
@@ -317,18 +594,18 @@ export const CurriculumView: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="glass-panel p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-400">إجمالي المراحل العمرية</p>
-            <p className="text-2xl font-bold text-white mt-1">{totalStages} مراحل</p>
+            <p className="text-xs font-medium text-slate-400">إجمالي دروس الـ PDF المرفوعة</p>
+            <p className="text-2xl font-bold text-white mt-1">{totalLessonsCount} درس</p>
           </div>
-          <div className="p-3 rounded-xl bg-slate-800 text-slate-300">
-            <BookOpen className="w-5 h-5" />
+          <div className="p-3 rounded-xl bg-brand-600/20 text-brand-400">
+            <Layers className="w-5 h-5" />
           </div>
         </div>
 
         <div className="glass-panel p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-400">المناهج المرفوعة والجاهزة</p>
-            <p className="text-2xl font-bold text-emerald-400 mt-1">{uploadedCount} من {totalStages}</p>
+            <p className="text-xs font-medium text-slate-400">المراحل التي تحتوي على دروس</p>
+            <p className="text-2xl font-bold text-emerald-400 mt-1">{stagesWithLessonsCount} من {totalStages}</p>
           </div>
           <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400">
             <Check className="w-5 h-5" />
@@ -337,48 +614,49 @@ export const CurriculumView: React.FC = () => {
 
         <div className="glass-panel p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-400">مراحل بحاجة لرفع المنهج</p>
-            <p className="text-2xl font-bold text-amber-400 mt-1">{missingCount} مراحل</p>
+            <p className="text-xs font-medium text-slate-400">متوسط الدروس لكل مرحلة</p>
+            <p className="text-2xl font-bold text-gold-400 mt-1">
+              {stagesWithLessonsCount > 0 ? (totalLessonsCount / stagesWithLessonsCount).toFixed(1) : '0'} درس
+            </p>
           </div>
           <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400">
-            <Clock className="w-5 h-5" />
+            <BookOpen className="w-5 h-5" />
           </div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
-            onClick={() => setFilter('all')}
-            className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-              filter === 'all'
+            onClick={() => setSelectedStageFilter('all')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              selectedStageFilter === 'all'
                 ? 'bg-brand-600 text-white shadow-md shadow-brand-600/25'
                 : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
             }`}
           >
-            كل المراحل ({totalStages})
+            كل المراحل ({totalLessonsCount})
           </button>
-          <button
-            onClick={() => setFilter('uploaded')}
-            className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-              filter === 'uploaded'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
-                : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
-            }`}
-          >
-            تم رفع الـ PDF ({uploadedCount})
-          </button>
-          <button
-            onClick={() => setFilter('missing')}
-            className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-              filter === 'missing'
-                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/25'
-                : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
-            }`}
-          >
-            بانتظار الرفع ({missingCount})
-          </button>
+          {STAGES_CONFIG.map((s) => {
+            const count = lessons.filter((l) => l.stage_code === s.code).length;
+            return (
+              <button
+                key={s.code}
+                onClick={() => setSelectedStageFilter(s.code)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 ${
+                  selectedStageFilter === s.code
+                    ? 'bg-brand-600 text-white shadow-md shadow-brand-600/25'
+                    : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>{s.name.replace('مرحلة ', '')}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800/80 text-slate-300">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="relative w-full sm:w-64">
@@ -387,29 +665,25 @@ export const CurriculumView: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="بحث عن مرحلة..."
+            placeholder="بحث بالاسم أو عنوان الدرس..."
             className="w-full bg-slate-900 text-xs text-white placeholder-slate-500 rounded-xl pr-9 pl-3 py-2 border border-slate-800 focus:outline-none focus:border-brand-500"
           />
         </div>
       </div>
 
-      {/* Stages Grid */}
+      {/* Stages & Lessons Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {filteredStages.map((cfg) => {
-          const stageData = stages[cfg.code];
-          const hasPdf = !!stageData?.pdf_url;
-          const isUploading = uploadingFor === cfg.code;
-          const isSaving = savingFor === cfg.code;
+          const stageLessons = lessons.filter((l) => l.stage_code === cfg.code);
+          const isQuickUploading = quickUploadingStage === cfg.code;
 
           return (
             <div 
               key={cfg.code}
-              className={`glass-panel p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${
-                hasPdf ? 'border-slate-800 bg-slate-900/60' : 'border-amber-500/20 bg-amber-500/[0.02]'
-              }`}
+              className="glass-panel p-5 rounded-2xl border border-slate-800 bg-slate-900/60 flex flex-col justify-between"
             >
               <div>
-                {/* Header */}
+                {/* Stage Header */}
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-xl bg-slate-800 flex items-center justify-center text-xl shadow-inner">
@@ -426,119 +700,233 @@ export const CurriculumView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div>
-                    {hasPdf ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-bold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        مرفوع ويعمل ⚡
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[11px] font-bold">
-                        لم يتم الرفع
-                      </span>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold ${
+                      stageLessons.length > 0
+                        ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                        : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                    }`}>
+                      {stageLessons.length > 0 ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                          <span>{stageLessons.length} دروس PDF</span>
+                        </>
+                      ) : (
+                        <span>لا توجد دروس بعد</span>
+                      )}
+                    </span>
                   </div>
                 </div>
 
-                {/* Title Input */}
-                <div className="space-y-1.5 mb-4">
-                  <label className="block text-[11px] font-semibold text-slate-400">
-                    عنوان أو وصف منهج هذه المرحلة:
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={titles[cfg.code] ?? `منهج ${cfg.name} - مدارس الأحد`}
-                      onChange={(e) => setTitles({ ...titles, [cfg.code]: e.target.value })}
-                      placeholder={`منهج ${cfg.name}`}
-                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500"
-                    />
+                {/* Lessons List Section */}
+                <div className="space-y-2.5 mb-4">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                    <span className="flex items-center gap-1.5">
+                      <FolderOpen className="w-3.5 h-3.5 text-brand-400" />
+                      <span>قائمة الدروس المتاحة ({stageLessons.length}):</span>
+                    </span>
+
                     <button
-                      onClick={() => handleSaveTitle(cfg.code)}
-                      disabled={isSaving}
-                      className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1 transition-all disabled:opacity-50"
-                      title="حفظ العنوان"
+                      onClick={() => openAddModal(cfg.code)}
+                      className="text-[11px] text-brand-400 hover:text-brand-300 font-bold flex items-center gap-1 transition-colors"
                     >
-                      <Save className="w-3.5 h-3.5" />
-                      <span>{isSaving ? '...' : 'حفظ'}</span>
+                      <Plus className="w-3 h-3" />
+                      <span>إضافة درس</span>
                     </button>
                   </div>
-                </div>
 
-                {/* PDF State Box */}
-                {hasPdf ? (
-                  <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="w-4 h-4 text-brand-400 shrink-0" />
-                        <span className="text-slate-300 font-medium truncate max-w-[200px]" title={stageData?.pdf_url || ''}>
-                          {stageData?.pdf_url?.split('/').pop() || 'curriculum.pdf'}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md">
-                        جاهز للتحميل
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-1 border-t border-slate-800/60">
-                      <a
-                        href={stageData.pdf_url!}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-all"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-brand-400" />
-                        <span>معاينة الـ PDF</span>
-                        <ExternalLink className="w-3 h-3 text-slate-500" />
-                      </a>
-
-                      <label className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 text-xs font-medium transition-all">
-                        <UploadCloud className="w-3.5 h-3.5" />
-                        <span>{isUploading ? 'جارٍ الرفع...' : 'استبدال بملف آخر'}</span>
-                        <input
-                          type="file"
-                          accept="application/pdf,.pdf"
-                          disabled={isUploading}
-                          onChange={(e) => handleUploadFile(cfg.code, e)}
-                          className="hidden"
-                        />
-                      </label>
-
+                  {stageLessons.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/40 text-center space-y-2">
+                      <p className="text-xs text-slate-500 font-medium">لم يتم رفع أي درس PDF لهذه المرحلة بعد</p>
                       <button
-                        onClick={() => handleDeletePdf(cfg.code, cfg.name)}
-                        disabled={isSaving}
-                        className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all"
-                        title="إزالة الـ PDF من هذه المرحلة"
+                        onClick={() => openAddModal(cfg.code)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 text-xs font-semibold transition-all"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Plus className="w-3 h-3" />
+                        <span>إضافة أول درس الآن</span>
                       </button>
                     </div>
-                  </div>
-                ) : (
-                  /* Upload Drop Box */
-                  <label className="cursor-pointer block p-5 rounded-xl border border-dashed border-slate-700 hover:border-brand-500/50 bg-slate-950/40 hover:bg-brand-500/[0.03] transition-all text-center group">
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <div className="w-10 h-10 rounded-full bg-slate-800 group-hover:bg-brand-600/20 group-hover:text-brand-400 text-slate-400 flex items-center justify-center transition-colors">
-                        <UploadCloud className={`w-5 h-5 ${isUploading ? 'animate-bounce text-brand-400' : ''}`} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-white group-hover:text-brand-300 transition-colors">
-                          {isUploading ? 'جارٍ رفع ملف الـ PDF وحفظه...' : 'اضغط لاختيار ملف PDF من جهازك'}
-                        </p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">
-                          يتم رفعه وحفظه فوراً في سحابة التطبيق لمرحلة ({cfg.name})
-                        </p>
-                      </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
+                      {stageLessons.map((lesson, idx) => {
+                        const isEditingThis = editingLessonId === lesson.id;
+
+                        return (
+                          <div 
+                            key={lesson.id}
+                            className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between gap-2.5 hover:border-slate-700 transition-all"
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              {/* Reorder Buttons */}
+                              <div className="flex flex-col gap-0.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveLesson(lesson, 'up')}
+                                  disabled={idx === 0}
+                                  className="p-0.5 rounded text-slate-500 hover:text-white disabled:opacity-20 hover:bg-slate-800 transition-colors"
+                                  title="نقل لأعلى"
+                                >
+                                  <ArrowUp className="w-2.5 h-2.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveLesson(lesson, 'down')}
+                                  disabled={idx === stageLessons.length - 1}
+                                  className="p-0.5 rounded text-slate-500 hover:text-white disabled:opacity-20 hover:bg-slate-800 transition-colors"
+                                  title="نقل لأسفل"
+                                >
+                                  <ArrowDown className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+
+                              <div className="w-7 h-7 rounded-lg bg-slate-800 text-brand-400 flex items-center justify-center text-xs font-bold shrink-0">
+                                {idx + 1}
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                {isEditingThis ? (
+                                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full">
+                                    <input
+                                      type="text"
+                                      value={editingLessonTitle}
+                                      onChange={(e) => setEditingLessonTitle(e.target.value)}
+                                      placeholder="عنوان الدرس..."
+                                      className="flex-1 bg-slate-900 border border-brand-500 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+                                      autoFocus
+                                    />
+                                    <input
+                                      type="text"
+                                      value={editingLessonWeek}
+                                      onChange={(e) => setEditingLessonWeek(e.target.value)}
+                                      placeholder="رقم الأسبوع..."
+                                      className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+                                    />
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSaveLessonEdit(lesson.id)}
+                                        disabled={isSavingEdit}
+                                        className="p-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px]"
+                                        title="حفظ"
+                                      >
+                                        <Check className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingLessonId(null)}
+                                        className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 text-[10px]"
+                                        title="إلغاء"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <p className="text-xs font-bold text-white truncate" title={lesson.title}>
+                                      {lesson.title}
+                                    </p>
+                                    <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                                      {lesson.week_number && (
+                                        <span className="px-1.5 py-0.2 rounded bg-slate-800 text-brand-300 font-semibold">
+                                          {lesson.week_number}
+                                        </span>
+                                      )}
+                                      {lesson.file_size && (
+                                        <span>{lesson.file_size}</span>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <a
+                                href={lesson.pdf_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-brand-400 transition-all"
+                                title="معاينة ملف الـ PDF"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </a>
+
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditLesson(lesson)}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                                title="تعديل العنوان"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteLesson(lesson)}
+                                className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all"
+                                title="حذف هذا الدرس"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <input
-                      type="file"
-                      accept="application/pdf,.pdf"
-                      disabled={isUploading}
-                      onChange={(e) => handleUploadFile(cfg.code, e)}
-                      className="hidden"
-                    />
-                  </label>
-                )}
+                  )}
+                </div>
+
+                {/* Quick File Drop / Upload for this Stage */}
+                <div className="pt-2">
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOverStage(cfg.code);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      setDragOverStage(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOverStage(null);
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        handleUploadFilesForStage(cfg.code, e.dataTransfer.files);
+                      }
+                    }}
+                    className={`relative rounded-xl border border-dashed transition-all p-3.5 text-center ${
+                      dragOverStage === cfg.code
+                        ? 'border-brand-400 bg-brand-500/10'
+                        : 'border-slate-800 hover:border-brand-500/50 bg-slate-950/30 hover:bg-brand-500/[0.02]'
+                    }`}
+                  >
+                    <label className="cursor-pointer block group">
+                      <div className="flex items-center justify-center gap-2">
+                        <UploadCloud className={`w-4 h-4 text-slate-400 group-hover:text-brand-400 ${isQuickUploading ? 'animate-bounce text-brand-400' : ''}`} />
+                        <span className="text-xs font-semibold text-slate-300 group-hover:text-white">
+                          {isQuickUploading 
+                            ? (uploadProgressText || 'جارٍ رفع الملفات...') 
+                            : 'رفع ملف أو عدة ملفات PDF معاً (أو اسحبها وأفلتها هنا)'}
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        multiple
+                        accept="application/pdf,.pdf"
+                        disabled={isQuickUploading}
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            handleUploadFilesForStage(cfg.code, e.target.files);
+                          }
+                          e.target.value = '';
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
               </div>
 
               {/* Bottom Card Footer */}
@@ -548,7 +936,7 @@ export const CurriculumView: React.FC = () => {
                   <span>تطبيق كرمتي للموبايل</span>
                 </span>
                 <span>
-                  {hasPdf ? 'مفعل وجاهز للتنزيل للمستخدمين' : 'غير متوفر حالياً في التطبيق'}
+                  {stageLessons.length > 0 ? `${stageLessons.length} دروس مفعلة بالقائمة` : 'بانتظار إضافة دروس'}
                 </span>
               </div>
             </div>
@@ -556,16 +944,174 @@ export const CurriculumView: React.FC = () => {
         })}
       </div>
 
+      {/* Add Lesson Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
+          <div className="glass-panel w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl p-6 space-y-5 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-brand-600/20 text-brand-400 flex items-center justify-center">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">إضافة درس PDF جديد</h3>
+                  <p className="text-[11px] text-slate-400">سيظهر في قائمة دروس المرحلة بتطبيق الموبايل</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateLesson} className="space-y-4">
+              {/* Select Stage */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  المرحلة الدراسية
+                </label>
+                <select
+                  value={targetStageCode}
+                  onChange={(e) => setTargetStageCode(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500"
+                >
+                  {STAGES_CONFIG.map((s) => (
+                    <option key={s.code} value={s.code}>
+                      {s.name} ({s.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Lesson Title */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  عنوان الدرس أو المنهج *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newLessonTitle}
+                  onChange={(e) => setNewLessonTitle(e.target.value)}
+                  placeholder="مثال: الدرس الأول: داود النبي ورعاية الخراف"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
+                />
+              </div>
+
+              {/* Week / Lesson Number */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  رقم الدرس أو الأسبوع (اختياري)
+                </label>
+                <input
+                  type="text"
+                  value={newLessonWeek}
+                  onChange={(e) => setNewLessonWeek(e.target.value)}
+                  placeholder="مثال: الدرس 1، الأسبوع الأول، ملزمة كيهك"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
+                />
+              </div>
+
+              {/* Upload PDF Box */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>ملف أو ملفات الـ PDF *</span>
+                  <span className="text-[11px] text-brand-400 font-normal">يمكنك تحديد أكثر من ملف دفعة واحدة</span>
+                </label>
+                <div className="p-4 rounded-xl border border-dashed border-slate-700 bg-slate-950/60 text-center space-y-2">
+                  <div className="flex items-center justify-center">
+                    <FileText className="w-8 h-8 text-brand-400" />
+                  </div>
+                  <div>
+                    {selectedPdfFiles.length > 1 ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-400">
+                          <Check className="w-4 h-4" />
+                          <span>
+                            تم اختيار {selectedPdfFiles.length} ملفات PDF (إجمالي{' '}
+                            {(selectedPdfFiles.reduce((acc, f) => acc + f.size, 0) / (1024 * 1024)).toFixed(2)} MB)
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400">سيتم حفظ كل ملف كدرس مستقل داخل هذه المرحلة</p>
+                      </div>
+                    ) : selectedPdfFiles.length === 1 ? (
+                      <div className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-400">
+                        <Check className="w-4 h-4" />
+                        <span>تم اختيار: {selectedPdfFiles[0].name} ({(selectedPdfFiles[0].size / (1024 * 1024)).toFixed(2)} MB)</span>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-xs font-bold text-white">اختر ملف أو عدة ملفات PDF من جهازك</p>
+                        <p className="text-[11px] text-slate-500">سيتم رفعها وتوليد روابط سحابية آمنة وتلقائية وتظهر بالتطبيق فوراً</p>
+                      </>
+                    )}
+                  </div>
+
+                  <label className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-md shadow-brand-600/20 transition-all">
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>{selectedPdfFiles.length > 0 ? 'تغيير الملفات المحددة' : 'تصفح جهازك (ملف واحد أو متعدد)'}</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="application/pdf,.pdf"
+                      onChange={(e) => setSelectedPdfFiles(e.target.files ? Array.from(e.target.files) : [])}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Or Direct URL Input */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  أو رابط PDF خارجي مباشر
+                </label>
+                <input
+                  type="url"
+                  value={newLessonUrl}
+                  onChange={(e) => setNewLessonUrl(e.target.value)}
+                  placeholder="https://.../lesson.pdf"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500"
+                />
+              </div>
+
+              {/* Submit / Cancel Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all"
+                >
+                  إلغاء
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingLesson}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-emerald-600/25 transition-all"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{isSubmittingLesson ? (uploadProgressText || 'جارٍ الحفظ والرفع...') : (selectedPdfFiles.length > 1 ? `حفظ ورفع ${selectedPdfFiles.length} دروس` : 'حفظ وإضافة الدرس')}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Info Notice Card */}
       <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-slate-900/40 text-xs text-slate-400 space-y-2">
         <h4 className="font-bold text-white flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-brand-400" />
-          <span>كيف تعمل ميزة مناهج الـ PDF في تطبيق الموبايل؟</span>
+          <span>كيف تعمل ميزة تعدد الدروس في تطبيق الموبايل؟</span>
         </h4>
         <ul className="space-y-1 text-slate-400 list-disc list-inside leading-relaxed text-[11.5px]">
-          <li><strong>حجم التطبيق خفيف (غير مدمج):</strong> ملفات الـ PDF لا يتم تضمينها داخل حزمة تطبيق الهاتف APK لتوفير المساحة، وإنما تُجلب من سحابة Supabase التخزينية فور رفعها هنا.</li>
-          <li><strong>تجربة المستخدم:</strong> عندما يفتح المخدوم أو الخادم تبويب "المناهج والدروس" في مرحلته، يظهر له كارت أنيق لتحميل المنهج مع شريط التقدم، ثم يُعرض مباشرة داخل نفس الصفحة بدون الحاجة لمغادرة التطبيق.</li>
-          <li><strong>القراءة أوفلاين:</strong> يتم حفظ الملف تلقائياً في ذاكرة هاتف المستخدم ليعمل دائماً حتى عند عدم وجود اتصال بالإنترنت.</li>
+          <li><strong>عرض متعدد:</strong> تظهر جميع الدروس المرفوعة هنا داخل شاشة المرحلة في التطبيق كقائمة منظمة تحتوي على أسماء الدروس وأرقامها.</li>
+          <li><strong>قراءة وتحميل مستقل:</strong> يستطيع الخادم والمخدوم النقر على أي درس لتنزيله وقراءته مباشرة بالصفحة بدون مغادرة التطبيق.</li>
+          <li><strong>مزامنة فورية (Realtime):</strong> بمجرد إضافة درس جديد أو حذفه من هذه اللوحة، يسمع التغيير فوراً في تطبيق الموبايل دون الحاجة لتحديث التطبيق من المتجر.</li>
         </ul>
       </div>
     </div>
