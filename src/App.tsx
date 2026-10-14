@@ -15,10 +15,18 @@ import { SubscriptionsView } from './views/SubscriptionsView';
 import { TutorialsView } from './views/TutorialsView';
 import { SuggestionsView } from './views/SuggestionsView';
 import { SupportView } from './views/SupportView';
+import { PostLandingView } from './views/PostLandingView';
 import { supabase } from './lib/supabase';
 import { Profile, CommunityPost, SundaySchoolStudent, InventoryItem, BudgetItem } from './types';
 
 export function App() {
+  // Check if the current URL is a shared post deep link (e.g. /post/123)
+  const path = window.location.pathname;
+  if (path.startsWith('/post/')) {
+    const postId = path.replace('/post/', '').split('/')[0].split('?')[0];
+    return <PostLandingView postId={postId} />;
+  }
+
   const [currentTab, setCurrentTab] = useState<NavItem>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
