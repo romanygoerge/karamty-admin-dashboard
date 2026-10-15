@@ -503,11 +503,11 @@ export const UsersView: React.FC<UsersViewProps> = ({
                     <td className="py-3 px-4">
                       {p.is_subscribed ? (
                         <div className="flex flex-col gap-1 items-start">
-                          {p.is_team_owner || p.subscription_plan?.startsWith('premium_') || ((p.max_team_members || 0) > 0) ? (
+                          {((p.is_team_owner || ((p.max_team_members || 0) > 0) || (p.subscription_plan?.startsWith('premium_') && p.subscription_plan !== 'premium_member')) && !p.team_owner_id) ? (
                             <>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
                                 <Users className="w-3 h-3 text-amber-400" />
-                                باقة عائلة ({p.max_team_members || 10} أفراد) 👥
+                                مالك باقة عائلة ({p.max_team_members || 10} أفراد) 👥
                               </span>
                               <button
                                 onClick={() => setFamilyModalTarget({
@@ -524,6 +524,11 @@ export const UsersView: React.FC<UsersViewProps> = ({
                                 <span>أفراد العائلة ({p.max_team_members || 10})</span>
                               </button>
                             </>
+                          ) : (p.subscription_plan === 'premium_member' || !!p.team_owner_id) ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                              <Users className="w-3 h-3 text-purple-400" />
+                              عضو مضاف في باقة عائلية 👥
+                            </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
                               <Crown className="w-3 h-3 text-amber-400" />
@@ -596,7 +601,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
                         >
                           <Crown className="w-3.5 h-3.5" />
                         </button>
-                        {(p.is_team_owner || p.subscription_plan?.startsWith('premium_') || ((p.max_team_members || 0) > 0)) && (
+                        {((p.is_team_owner || ((p.max_team_members || 0) > 0) || (p.subscription_plan?.startsWith('premium_') && p.subscription_plan !== 'premium_member')) && !p.team_owner_id) && (
                           <button
                             onClick={() => setFamilyModalTarget({
                               ownerId: p.id,

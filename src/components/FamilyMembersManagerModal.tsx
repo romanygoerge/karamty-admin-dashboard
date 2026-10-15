@@ -227,6 +227,8 @@ export const FamilyMembersManagerModal: React.FC<FamilyMembersManagerModalProps>
           is_subscribed: true,
           subscription_plan: 'premium_member',
           team_owner_id: ownerId,
+          is_team_owner: false,
+          max_team_members: 0,
           subscription_end_date: ownerProfile?.subscription_end_date || null,
           updated_at: new Date().toISOString(),
         })
