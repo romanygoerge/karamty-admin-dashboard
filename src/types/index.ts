@@ -18,6 +18,9 @@ export interface Profile {
   subscription_plan?: string;
   subscription_end_date?: string;
   is_supporter?: boolean;
+  is_team_owner?: boolean;
+  max_team_members?: number;
+  team_owner_id?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -28,8 +31,9 @@ export interface PaymentRequest {
   user_name: string;
   user_phone?: string;
   user_email?: string;
-  type: 'subscription' | 'donation';
+  type: 'subscription' | 'upgrade' | 'donation';
   plan: string;
+  previous_plan?: string;
   amount: number;
   sender_wallet_or_phone?: string;
   receipt_url?: string;

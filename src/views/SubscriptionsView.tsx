@@ -23,6 +23,7 @@ import {
 import { supabase, SUPABASE_URL } from '../lib/supabase';
 import { PaymentRequest, SubscriptionPlan } from '../types';
 import { SubscriptionPlansManager } from '../components/SubscriptionPlansManager';
+import { FamilyMembersManagerModal } from '../components/FamilyMembersManagerModal';
 
 interface SubscriptionsViewProps {
   onUpdatePendingCount?: (count: number) => void;
@@ -35,6 +36,16 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
   const [activeTab, setActiveTab] = useState<'pending' | 'subscriptions' | 'donations' | 'plans' | 'all'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null);
+
+  // Family Members Management Modal State
+  const [familyModalTarget, setFamilyModalTarget] = useState<{
+    ownerId: string;
+    ownerName: string;
+    ownerPhone?: string;
+    ownerEmail?: string;
+    initialPlan?: string;
+    maxMembers?: number;
+  } | null>(null);
   
   // Activation Modal State
   const [activationTarget, setActivationTarget] = useState<PaymentRequest | null>(null);
@@ -114,7 +125,7 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
     return requests.filter(req => {
       // Tab filter
       if (activeTab === 'pending' && req.status !== 'pending') return false;
-      if (activeTab === 'subscriptions' && (req.type !== 'subscription' || req.status === 'pending')) return false;
+      if (activeTab === 'subscriptions' && ((req.type !== 'subscription' && req.type !== 'upgrade') || req.status === 'pending')) return false;
       if (activeTab === 'donations' && req.type !== 'donation') return false;
 
       // Search query
@@ -147,7 +158,7 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
   // 100% Genuine Real-time Statistics from Supabase & Mobile App
   const stats = useMemo(() => {
     const pending = requests.filter(r => r.status === 'pending');
-    const approvedSubs = requests.filter(r => r.type === 'subscription' && r.status === 'approved');
+    const approvedSubs = requests.filter(r => (r.type === 'subscription' || r.type === 'upgrade') && r.status === 'approved');
     const approvedDonations = requests.filter(r => r.type === 'donation' && r.status === 'approved');
 
     // Only APPROVED donations count toward total church revenue
@@ -333,8 +344,21 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
             is_subscribed: false,
             subscription_plan: 'none',
             subscription_end_date: null,
+            is_team_owner: false,
+            max_team_members: 0,
             updated_at: new Date().toISOString()
           }).eq('id', req.user_id);
+
+          try {
+            await supabase.from('profiles').update({
+              is_subscribed: false,
+              subscription_plan: 'none',
+              subscription_end_date: null,
+              team_owner_id: null,
+              updated_at: new Date().toISOString()
+            }).eq('team_owner_id', req.user_id);
+            await supabase.from('subscription_team_members').delete().eq('owner_id', req.user_id);
+          } catch (_) {}
         }
 
         await supabase.from('service_budget_items').update({
@@ -357,7 +381,7 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
 
   // Handle Permanent Delete
   const handleDeleteRequest = async (req: PaymentRequest) => {
-    const isApprovedSub = req.type === 'subscription' && req.status === 'approved';
+    const isApprovedSub = (req.type === 'subscription' || req.type === 'upgrade') && req.status === 'approved';
     const confirmMsg = isApprovedSub
       ? `تحذير: هذا الاشتراك مفعل حالياً. هل أنت متأكد من حذف هذا السجل نهائياً من قاعدة البيانات وإلغاء الاشتراك وإعادة الإعلانات للمستخدم (${req.user_name})؟`
       : `هل أنت متأكد من حذف هذا السجل نهائياً من قاعدة البيانات؟`;
@@ -393,8 +417,21 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
             is_subscribed: false,
             subscription_plan: 'none',
             subscription_end_date: null,
+            is_team_owner: false,
+            max_team_members: 0,
             updated_at: new Date().toISOString()
           }).eq('id', req.user_id);
+
+          try {
+            await supabase.from('profiles').update({
+              is_subscribed: false,
+              subscription_plan: 'none',
+              subscription_end_date: null,
+              team_owner_id: null,
+              updated_at: new Date().toISOString()
+            }).eq('team_owner_id', req.user_id);
+            await supabase.from('subscription_team_members').delete().eq('owner_id', req.user_id);
+          } catch (_) {}
         }
 
         await supabase.from('service_budget_items').delete().eq('id', req.id);
@@ -656,7 +693,8 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
               </thead>
               <tbody className="divide-y divide-slate-800 text-sm">
                 {filteredRequests.map((req) => {
-                  const isSub = req.type === 'subscription';
+                  const isUpgrade = req.type === 'upgrade';
+                  const isSub = req.type === 'subscription' || isUpgrade;
                   const isPending = req.status === 'pending';
                   const isApproved = req.status === 'approved';
 
@@ -675,13 +713,59 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
 
                       {/* Type & Plan */}
                       <td className="p-4">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-col gap-1 items-start">
                           {isSub ? (
-                            req.plan?.startsWith('premium_') ? (
-                              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                                <Users className="w-3.5 h-3.5 text-amber-400" />
-                                كرمتي بريميوم ({req.plan.replace('premium_', '')} أفراد) 👥
-                              </span>
+                            isUpgrade ? (
+                              <div className="flex flex-col gap-1 items-start">
+                                <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1.5 shadow-sm">
+                                  <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                                  <span>طلب ترقية: {req.plan?.startsWith('premium_') ? `كرمتي للعائلة (${req.plan.replace('premium_', '')} أفراد)` : (req.plan === 'yearly' ? 'كرمتي بلس سنوي' : 'كرمتي بلس شهري')} 🚀</span>
+                                </span>
+                                {req.previous_plan && (
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    ترقية من: {req.previous_plan}
+                                  </span>
+                                )}
+                                {req.user_id && req.plan?.startsWith('premium_') && (
+                                  <button
+                                    onClick={() => setFamilyModalTarget({
+                                      ownerId: req.user_id!,
+                                      ownerName: req.user_name,
+                                      ownerPhone: req.user_phone,
+                                      ownerEmail: req.user_email,
+                                      initialPlan: req.plan,
+                                      maxMembers: req.plan?.includes('15') ? 15 : req.plan?.includes('20') ? 20 : req.plan?.includes('30') ? 30 : 10,
+                                    })}
+                                    className="px-2 py-0.5 rounded-lg text-[10.5px] font-bold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 flex items-center gap-1 transition-all shadow-sm"
+                                  >
+                                    <Users className="w-3 h-3 text-purple-400" />
+                                    <span>تحكم في أفراد العائلة</span>
+                                  </button>
+                                )}
+                              </div>
+                            ) : req.plan?.startsWith('premium_') ? (
+                              <div className="flex flex-col gap-1 items-start">
+                                <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                  <Users className="w-3.5 h-3.5 text-amber-400" />
+                                  كرمتي للعائلة والخدام ({req.plan.replace('premium_', '')} أفراد) 👥
+                                </span>
+                                {req.user_id && (
+                                  <button
+                                    onClick={() => setFamilyModalTarget({
+                                      ownerId: req.user_id!,
+                                      ownerName: req.user_name,
+                                      ownerPhone: req.user_phone,
+                                      ownerEmail: req.user_email,
+                                      initialPlan: req.plan,
+                                      maxMembers: req.plan?.includes('15') ? 15 : req.plan?.includes('20') ? 20 : req.plan?.includes('30') ? 30 : 10,
+                                    })}
+                                    className="px-2 py-0.5 rounded-lg text-[10.5px] font-bold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 flex items-center gap-1 transition-all shadow-sm"
+                                  >
+                                    <Users className="w-3 h-3 text-purple-400" />
+                                    <span>تحكم في أفراد العائلة</span>
+                                  </button>
+                                )}
+                              </div>
                             ) : (
                               <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
                                 <Crown className="w-3.5 h-3.5 text-amber-400" />
@@ -771,8 +855,11 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
                             <button
                               onClick={() => {
                                 setActivationTarget(req);
-                                setSelectedPlan(req.plan === 'yearly' ? 'yearly' : 'monthly');
-                                setSelectedMonths(req.plan === 'yearly' ? 12 : 1);
+                                const isYearly = req.plan === 'yearly' || req.plan?.startsWith('premium_');
+                                setSelectedPlan(req.plan || 'monthly');
+                                setSelectedMonths(isYearly ? 12 : 1);
+                                const maxMembers = req.plan?.includes('15') ? 15 : req.plan?.includes('20') ? 20 : req.plan?.includes('30') ? 30 : (req.plan?.startsWith('premium_') ? 10 : 1);
+                                setSelectedMaxMembers(maxMembers);
                               }}
                               className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 flex items-center gap-1 transition-all"
                             >
@@ -800,14 +887,35 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
                               <button
                                 onClick={() => {
                                   setActivationTarget(req);
-                                  setSelectedPlan(req.plan === 'yearly' ? 'yearly' : 'monthly');
-                                  setSelectedMonths(req.plan === 'yearly' ? 12 : 1);
+                                  const isYearly = req.plan === 'yearly' || req.plan?.startsWith('premium_');
+                                  setSelectedPlan(req.plan || 'monthly');
+                                  setSelectedMonths(isYearly ? 12 : 1);
+                                  const maxMembers = req.plan?.includes('15') ? 15 : req.plan?.includes('20') ? 20 : req.plan?.includes('30') ? 30 : (req.plan?.startsWith('premium_') ? 10 : 1);
+                                  setSelectedMaxMembers(maxMembers);
                                 }}
                                 className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-purple-900/40 text-purple-300 hover:text-purple-200 border border-purple-500/30 flex items-center gap-1 transition-all"
                                 title="تعديل باقة أو مدة الاشتراك"
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
                                 <span>تعديل</span>
+                              </button>
+                            )}
+
+                            {isApproved && isSub && req.plan?.startsWith('premium_') && req.user_id && (
+                              <button
+                                onClick={() => setFamilyModalTarget({
+                                  ownerId: req.user_id!,
+                                  ownerName: req.user_name,
+                                  ownerPhone: req.user_phone,
+                                  ownerEmail: req.user_email,
+                                  initialPlan: req.plan,
+                                  maxMembers: req.plan?.includes('15') ? 15 : req.plan?.includes('20') ? 20 : req.plan?.includes('30') ? 30 : 10,
+                                })}
+                                className="px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 hover:text-amber-200 border border-amber-500/30 flex items-center gap-1 transition-all"
+                                title="تحكم كامل في أفراد العائلة والخدام المضافين"
+                              >
+                                <Users className="w-3.5 h-3.5" />
+                                <span>أفراد العائلة 👥</span>
                               </button>
                             )}
 
@@ -1066,6 +1174,21 @@ export const SubscriptionsView: React.FC<SubscriptionsViewProps> = ({ onUpdatePe
             </div>
           </div>
         </div>
+      )}
+
+      {/* 7. Family & Team Members Management Modal */}
+      {familyModalTarget && (
+        <FamilyMembersManagerModal
+          isOpen={true}
+          onClose={() => setFamilyModalTarget(null)}
+          ownerId={familyModalTarget.ownerId}
+          ownerName={familyModalTarget.ownerName}
+          ownerPhone={familyModalTarget.ownerPhone}
+          ownerEmail={familyModalTarget.ownerEmail}
+          initialPlan={familyModalTarget.initialPlan}
+          maxMembers={familyModalTarget.maxMembers}
+          onUpdate={fetchRequests}
+        />
       )}
     </div>
   );

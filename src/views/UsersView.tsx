@@ -23,6 +23,7 @@ import {
 import { Profile, SundaySchoolStudent } from '../types';
 import { Modal } from '../components/Modal';
 import { supabase } from '../lib/supabase';
+import { FamilyMembersManagerModal } from '../components/FamilyMembersManagerModal';
 
 interface UsersViewProps {
   profiles: Profile[];
@@ -48,9 +49,19 @@ export const UsersView: React.FC<UsersViewProps> = ({
   // Subscription Management Modal State
   const [isSubModalOpen, setIsSubModalOpen] = useState(false);
   const [selectedSubUser, setSelectedSubUser] = useState<Profile | null>(null);
-  const [subPlan, setSubPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('monthly');
+  const [subPlan, setSubPlan] = useState<string>('monthly');
   const [subDurationMonths, setSubDurationMonths] = useState<number>(1);
   const [isSubProcessing, setIsSubProcessing] = useState(false);
+
+  // Family Members Management Modal State
+  const [familyModalTarget, setFamilyModalTarget] = useState<{
+    ownerId: string;
+    ownerName: string;
+    ownerPhone?: string;
+    ownerEmail?: string;
+    initialPlan?: string;
+    maxMembers?: number;
+  } | null>(null);
 
   // New User Form State
   const [newFullName, setNewFullName] = useState('');
@@ -119,11 +130,26 @@ export const UsersView: React.FC<UsersViewProps> = ({
             is_subscribed: activate,
             subscription_plan: activate ? subPlan : 'none',
             subscription_end_date: endDate,
+            is_team_owner: activate ? (subPlan.startsWith('premium_')) : false,
+            max_team_members: activate ? (subPlan.startsWith('premium_') ? 10 : 0) : 0,
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedSubUser.id);
 
         if (pErr) throw pErr;
+
+        if (!activate) {
+          try {
+            await supabase.from('profiles').update({
+              is_subscribed: false,
+              subscription_plan: 'none',
+              subscription_end_date: null,
+              team_owner_id: null,
+              updated_at: new Date().toISOString()
+            }).eq('team_owner_id', selectedSubUser.id);
+            await supabase.from('subscription_team_members').delete().eq('owner_id', selectedSubUser.id);
+          } catch (_) {}
+        }
       }
 
       setStatusMessage(
@@ -477,14 +503,37 @@ export const UsersView: React.FC<UsersViewProps> = ({
                     <td className="py-3 px-4">
                       {p.is_subscribed ? (
                         <div className="flex flex-col gap-1 items-start">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                            <Crown className="w-3 h-3 text-amber-400" />
-                            {p.subscription_plan === 'yearly'
-                              ? 'سنوي (بدون إعلانات)'
-                              : p.subscription_plan === 'lifetime'
-                              ? 'دائم (مدى الحياة)'
-                              : 'شهري (بدون إعلانات)'}
-                          </span>
+                          {p.is_team_owner || p.subscription_plan?.startsWith('premium_') || ((p.max_team_members || 0) > 0) ? (
+                            <>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                <Users className="w-3 h-3 text-amber-400" />
+                                باقة عائلة ({p.max_team_members || 10} أفراد) 👥
+                              </span>
+                              <button
+                                onClick={() => setFamilyModalTarget({
+                                  ownerId: p.id,
+                                  ownerName: p.full_name || p.username || 'مستخدم كرمتي',
+                                  ownerPhone: p.phone,
+                                  ownerEmail: p.email,
+                                  initialPlan: p.subscription_plan || 'premium_10',
+                                  maxMembers: p.max_team_members || 10,
+                                })}
+                                className="mt-0.5 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-600/20 hover:bg-purple-600/35 text-purple-300 border border-purple-500/30 flex items-center gap-1 transition-all shadow-sm"
+                              >
+                                <Users className="w-3 h-3 text-purple-400" />
+                                <span>أفراد العائلة ({p.max_team_members || 10})</span>
+                              </button>
+                            </>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                              <Crown className="w-3 h-3 text-amber-400" />
+                              {p.subscription_plan === 'yearly'
+                                ? 'سنوي (بدون إعلانات)'
+                                : p.subscription_plan === 'lifetime'
+                                ? 'دائم (مدى الحياة)'
+                                : 'شهري (بدون إعلانات)'}
+                            </span>
+                          )}
                           {p.subscription_end_date && (
                             <span className="text-[10px] text-slate-400">
                               ينتهي: {new Date(p.subscription_end_date).toLocaleDateString('ar-EG')}
@@ -547,6 +596,22 @@ export const UsersView: React.FC<UsersViewProps> = ({
                         >
                           <Crown className="w-3.5 h-3.5" />
                         </button>
+                        {(p.is_team_owner || p.subscription_plan?.startsWith('premium_') || ((p.max_team_members || 0) > 0)) && (
+                          <button
+                            onClick={() => setFamilyModalTarget({
+                              ownerId: p.id,
+                              ownerName: p.full_name || p.username || 'مستخدم كرمتي',
+                              ownerPhone: p.phone,
+                              ownerEmail: p.email,
+                              initialPlan: p.subscription_plan || 'premium_10',
+                              maxMembers: p.max_team_members || 10,
+                            })}
+                            title="إدارة والتحكم في أفراد العائلة والخدام"
+                            className="p-1.5 rounded-lg bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600 hover:text-white transition-all"
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleOpenEdit(p)}
                           title="تعديل المستخدم"
@@ -937,6 +1002,21 @@ export const UsersView: React.FC<UsersViewProps> = ({
           </div>
         </div>
       </Modal>
+
+      {/* Family & Team Members Management Modal */}
+      {familyModalTarget && (
+        <FamilyMembersManagerModal
+          isOpen={true}
+          onClose={() => setFamilyModalTarget(null)}
+          ownerId={familyModalTarget.ownerId}
+          ownerName={familyModalTarget.ownerName}
+          ownerPhone={familyModalTarget.ownerPhone}
+          ownerEmail={familyModalTarget.ownerEmail}
+          initialPlan={familyModalTarget.initialPlan}
+          maxMembers={familyModalTarget.maxMembers}
+          onUpdate={onRefresh}
+        />
+      )}
     </div>
   );
 };

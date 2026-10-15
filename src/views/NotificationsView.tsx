@@ -13,7 +13,10 @@ import {
   ToggleRight,
   Layers,
   Upload,
-  Sparkles
+  Sparkles,
+  Sliders,
+  Maximize2,
+  X
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -39,6 +42,8 @@ interface BannerItem {
   button_text: string;
   action_url: string;
   is_active: boolean;
+  daily_frequency?: number;
+  display_type?: string;
 }
 
 export const NotificationsView: React.FC<NotificationsViewProps> = ({ onRefresh }) => {
@@ -63,6 +68,8 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onRefresh 
   const [bannerButtonText, setBannerButtonText] = useState('سجل الآن');
   const [bannerActionUrl, setBannerActionUrl] = useState('/mahragan');
   const [bannerIsActive, setBannerIsActive] = useState(false);
+  const [bannerDailyFrequency, setBannerDailyFrequency] = useState<number>(1);
+  const [bannerDisplayType, setBannerDisplayType] = useState<string>('popup');
   const [isSavingBanner, setIsSavingBanner] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [sendPushWithBanner, setSendPushWithBanner] = useState(false);
@@ -102,6 +109,8 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onRefresh 
         setBannerButtonText(data.button_text || 'عرض التفاصيل');
         setBannerActionUrl(data.action_url || '');
         setBannerIsActive(data.is_active ?? false);
+        setBannerDailyFrequency(data.daily_frequency ?? 1);
+        setBannerDisplayType(data.display_type || 'popup');
       }
     } catch (err) {
       console.error('Error loading banner:', err);
@@ -219,6 +228,8 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onRefresh 
         button_text: bannerButtonText.trim() || 'عرض التفاصيل',
         action_url: bannerActionUrl.trim() || null,
         is_active: bannerIsActive,
+        daily_frequency: Number(bannerDailyFrequency),
+        display_type: bannerDisplayType,
         updated_at: new Date().toISOString()
       };
 
@@ -590,6 +601,61 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onRefresh 
                 </div>
               </div>
 
+              {/* Display Type & Daily Frequency Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                {/* Display Type */}
+                <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/70">
+                  <label className="block text-slate-300 font-semibold mb-1.5 flex items-center gap-1.5">
+                    <Maximize2 className="w-3.5 h-3.5 text-brand-400" />
+                    <span>طريقة العرض بالتطبيق</span>
+                  </label>
+                  <select
+                    value={bannerDisplayType}
+                    onChange={(e) => setBannerDisplayType(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-medium focus:outline-none focus:border-brand-500 text-xs"
+                  >
+                    <option value="popup">🌟 نافذة منبثقة مع بلور للشاشة (Pop-up Modal)</option>
+                    <option value="inline">📱 بانر مدمج في الصفحة الرئيسية فقط</option>
+                    <option value="both">✨ كلاهما (نافذة منبثقة + بانر مدمج بالصفحة)</option>
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {bannerDisplayType === 'popup' 
+                      ? 'تفتح نافذة في منتصف الشاشة مع تمويه كامل للخلفية (Blur) لإلزام المشاهدة'
+                      : bannerDisplayType === 'inline'
+                      ? 'يظهر ككارت بانر ثابت أعلى الصفحة الرئيسية'
+                      : 'يظهر كنافذة منبثقة أولاً، ثم يبقى كبانر مدمج بالصفحة'}
+                  </p>
+                </div>
+
+                {/* Daily Frequency Cap */}
+                <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/70">
+                  <label className="block text-slate-300 font-semibold mb-1.5 flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                    <span>تكرار الظهور اليومي لكل مستخدم</span>
+                  </label>
+                  <select
+                    value={bannerDailyFrequency}
+                    onChange={(e) => setBannerDailyFrequency(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-medium focus:outline-none focus:border-brand-500 text-xs"
+                  >
+                    <option value={1}>مرة واحدة يومياً (الموصى به لمنع الإزعاج) 🌟</option>
+                    <option value={2}>مرتين يومياً (صباحاً ومساءً)</option>
+                    <option value={3}>٣ مرات يومياً</option>
+                    <option value={0}>مع كل فتح للتطبيق (بلا حدود) 🔄</option>
+                    <option value={-1}>مرة واحدة فقط للأبد لكل مستخدم 🔒</option>
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {bannerDailyFrequency === 1 
+                      ? 'يظهر للمستخدم مرة واحدة في اليوم فقط، حتى لا يزعجه مع كل فتح للتطبيق'
+                      : bannerDailyFrequency === 0
+                      ? 'يظهر مع كل جلسة وكل مرة يفتح فيها المستخدم التطبيق'
+                      : bannerDailyFrequency === -1
+                      ? 'يظهر مرة واحدة فقط في حياة المستخدم ولا يتكرر مجدداً'
+                      : `يظهر للمستخدم حد أقصى ${bannerDailyFrequency} مرات في اليوم الواحد`}
+                  </p>
+                </div>
+              </div>
+
               {/* Push notification sync option */}
               <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-800/60 border border-slate-700/80 cursor-pointer mt-2 text-slate-300">
                 <input
@@ -620,50 +686,112 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onRefresh 
             </h4>
 
             {/* Mock Phone Container */}
-            <div className="w-full max-w-sm rounded-2xl bg-slate-900 border-2 border-slate-700 p-4 shadow-2xl relative">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3 text-[11px] text-slate-400 font-semibold">
+            <div className="w-full max-w-sm rounded-2xl bg-slate-900 border-2 border-slate-700 p-4 shadow-2xl relative min-h-[440px] flex flex-col justify-between overflow-hidden">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3 text-[11px] text-slate-400 font-semibold z-10">
                 <span>تطبيق كرمتي 🍇</span>
                 <span className={`px-2 py-0.5 rounded-full text-[9px] ${bannerIsActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
                   {bannerIsActive ? 'مباشر الآن' : 'غير معروض'}
                 </span>
               </div>
 
-              {/* In-App Banner Preview Card */}
-              <div className="rounded-xl overflow-hidden border border-brand-500/40 bg-gradient-to-br from-slate-800 to-slate-850 shadow-lg">
-                {bannerImageUrl ? (
-                  <div className="h-32 w-full overflow-hidden relative bg-slate-800">
-                    <img 
-                      src={bannerImageUrl} 
-                      alt="Banner Preview" 
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=800';
-                      }}
-                    />
+              {bannerDisplayType === 'popup' || bannerDisplayType === 'both' ? (
+                /* POPUP MODAL WITH BLUR PREVIEW */
+                <div className="relative my-auto py-2">
+                  {/* Fake background feed simulating home screen */}
+                  <div className="absolute inset-0 filter blur-sm opacity-25 pointer-events-none space-y-2 p-2">
+                    <div className="h-6 w-3/4 bg-slate-700 rounded-md"></div>
+                    <div className="h-14 w-full bg-slate-800 rounded-lg"></div>
+                    <div className="h-20 w-full bg-slate-800 rounded-lg"></div>
                   </div>
-                ) : (
-                  <div className="h-20 w-full bg-brand-900/40 flex items-center justify-center text-brand-400">
-                    <ImageIcon className="w-8 h-8 opacity-40" />
-                  </div>
-                )}
 
-                <div className="p-3 text-right">
-                  <h5 className="font-bold text-white text-xs mb-1">{bannerTitle || 'عنوان البانر'}</h5>
-                  <p className="text-slate-300 text-[11px] leading-relaxed line-clamp-2">
-                    {bannerMessage || 'نص الرسالة والإعلان هنا...'}
-                  </p>
+                  {/* Blurred Backdrop Simulation Card */}
+                  <div className="relative z-10 bg-slate-950/85 backdrop-blur-md p-3.5 rounded-2xl border border-brand-500/50 shadow-2xl">
+                    {/* Floating Close Button */}
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30 flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        إعلان وتنبيه مميز
+                      </span>
+                      <button type="button" className="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-white">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
 
-                  <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-700/50">
+                    {bannerImageUrl ? (
+                      <div className="h-28 w-full overflow-hidden rounded-xl mb-2.5 relative bg-slate-800">
+                        <img 
+                          src={bannerImageUrl} 
+                          alt="Popup Preview" 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=800';
+                          }}
+                        />
+                      </div>
+                    ) : null}
+
+                    <h5 className="font-extrabold text-white text-xs mb-1 text-center">{bannerTitle || 'عنوان الإعلان'}</h5>
+                    <p className="text-slate-300 text-[11px] leading-relaxed text-center mb-3 line-clamp-3">
+                      {bannerMessage || 'نص التنبيه أو الإعلان المنبثق...'}
+                    </p>
+
                     <button
                       type="button"
-                      className="px-3 py-1.5 rounded-lg bg-brand-600 text-white font-bold text-[11px] flex items-center gap-1 shadow"
+                      className="w-full py-2 rounded-xl bg-gradient-to-r from-brand-600 to-purple-600 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-brand-600/30"
                     >
                       <span>{bannerButtonText || 'عرض التفاصيل'}</span>
                       <ExternalLink className="w-3 h-3" />
                     </button>
-                    <span className="text-[10px] text-slate-400">إعلان رسمي</span>
+
+                    <div className="text-center mt-2">
+                      <span className="text-[10px] text-slate-400 underline cursor-pointer">تخطي وإغلاق</span>
+                    </div>
                   </div>
                 </div>
+              ) : (
+                /* INLINE BANNER PREVIEW */
+                <div className="rounded-xl overflow-hidden border border-brand-500/40 bg-gradient-to-br from-slate-800 to-slate-850 shadow-lg my-auto">
+                  {bannerImageUrl ? (
+                    <div className="h-32 w-full overflow-hidden relative bg-slate-800">
+                      <img 
+                        src={bannerImageUrl} 
+                        alt="Banner Preview" 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=800';
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-20 w-full bg-brand-900/40 flex items-center justify-center text-brand-400">
+                      <ImageIcon className="w-8 h-8 opacity-40" />
+                    </div>
+                  )}
+
+                  <div className="p-3 text-right">
+                    <h5 className="font-bold text-white text-xs mb-1">{bannerTitle || 'عنوان البانر'}</h5>
+                    <p className="text-slate-300 text-[11px] leading-relaxed line-clamp-2">
+                      {bannerMessage || 'نص الرسالة والإعلان هنا...'}
+                    </p>
+
+                    <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-700/50">
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-lg bg-brand-600 text-white font-bold text-[11px] flex items-center gap-1 shadow"
+                      >
+                        <span>{bannerButtonText || 'عرض التفاصيل'}</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                      <span className="text-[10px] text-slate-400">إعلان رسمي</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bottom indicator info */}
+              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 z-10">
+                <span>طريقة العرض: {bannerDisplayType === 'popup' ? 'نافذة منبثقة (Popup)' : bannerDisplayType === 'both' ? 'منبثقة + مدمج' : 'بانر مدمج بالصفحة'}</span>
+                <span>تكرار: {bannerDailyFrequency === 1 ? 'مرة يومياً' : bannerDailyFrequency === 0 ? 'كل فتح للتطبيق' : bannerDailyFrequency === -1 ? 'مرة للأبد' : `${bannerDailyFrequency} مرات/يوم`}</span>
               </div>
             </div>
           </div>
@@ -672,3 +800,6 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({ onRefresh 
     </div>
   );
 };
+
+
+
