@@ -203,47 +203,56 @@ export const FamilyMembersManagerModal: React.FC<FamilyMembersManagerModalProps>
 
     setIsAdding(true);
     try {
-      // 1. Get Owner's end date
-      const { data: ownerProfile } = await supabase
-        .from('profiles')
-        .select('subscription_end_date')
-        .eq('id', ownerId)
-        .single();
-
-      // 2. Insert into subscription_team_members
-      const { error: insErr } = await supabase
-        .from('subscription_team_members')
-        .insert({
-          owner_id: ownerId,
-          member_id: targetUser.id,
-        });
-
-      if (insErr) throw insErr;
-
-      // 3. Grant premium privileges to target user
-      const { error: upErr } = await supabase
-        .from('profiles')
-        .update({
-          is_subscribed: true,
-          subscription_plan: 'premium_member',
-          team_owner_id: ownerId,
-          is_team_owner: false,
-          max_team_members: 0,
-          subscription_end_date: ownerProfile?.subscription_end_date || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', targetUser.id);
-
-      if (upErr) throw upErr;
-
-      // 4. Send notification
-      await supabase.from('notifications').insert({
-        user_id: targetUser.id,
-        title: '👑 تمت إضافتك إلى كرمتي للعائلة والخدام!',
-        body: `قام ${ownerName || 'مسؤول الباقة'} بإضافتك ضمن باقة كرمتي بريميوم. استمتع بكافة مميزات التطبيق بدون أي إعلانات نهائياً!`,
-        type: 'premium_member_added',
-        data: { owner_id: ownerId, owner_name: ownerName },
+      // 1. Try atomic DB function
+      const { error: rpcErr } = await supabase.rpc('add_subscription_team_member', {
+        p_owner_id: ownerId,
+        p_member_id: targetUser.id,
       });
+
+      if (rpcErr) {
+        console.warn('RPC add_subscription_team_member fallback:', rpcErr);
+        // Fallback: Get Owner's end date
+        const { data: ownerProfile } = await supabase
+          .from('profiles')
+          .select('subscription_end_date')
+          .eq('id', ownerId)
+          .single();
+
+        // Insert into subscription_team_members
+        const { error: insErr } = await supabase
+          .from('subscription_team_members')
+          .insert({
+            owner_id: ownerId,
+            member_id: targetUser.id,
+          });
+
+        if (insErr) throw insErr;
+
+        // Grant premium privileges to target user
+        const { error: upErr } = await supabase
+          .from('profiles')
+          .update({
+            is_subscribed: true,
+            subscription_plan: 'premium_member',
+            team_owner_id: ownerId,
+            is_team_owner: false,
+            max_team_members: 0,
+            subscription_end_date: ownerProfile?.subscription_end_date || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', targetUser.id);
+
+        if (upErr) throw upErr;
+
+        // Send notification
+        await supabase.from('notifications').insert({
+          user_id: targetUser.id,
+          title: '👑 تمت إضافتك إلى كرمتي للعائلة والخدام!',
+          body: `قام ${ownerName || 'مسؤول الباقة'} بإضافتك ضمن باقة كرمتي بريميوم. استمتع بكافة مميزات التطبيق بدون أي إعلانات نهائياً!`,
+          type: 'premium_member_added',
+          data: { owner_id: ownerId, owner_name: ownerName },
+        });
+      }
 
       showToast(`تمت إضافة (${targetUser.full_name || targetUser.phone || 'المستخدم'}) بنجاح وتفعيل كرمتي بدون إعلانات له! 🎉`);
       setSearchQuery('');
@@ -266,35 +275,44 @@ export const FamilyMembersManagerModal: React.FC<FamilyMembersManagerModalProps>
     if (!confirmDelete) return;
 
     try {
-      // 1. Delete from subscription_team_members
-      const { error: delErr } = await supabase
-        .from('subscription_team_members')
-        .delete()
-        .eq('owner_id', ownerId)
-        .eq('member_id', item.member_id);
-
-      if (delErr) throw delErr;
-
-      // 2. Revoke premium benefits
-      await supabase
-        .from('profiles')
-        .update({
-          is_subscribed: false,
-          subscription_plan: 'none',
-          subscription_end_date: null,
-          team_owner_id: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', item.member_id);
-
-      // 3. Notification
-      await supabase.from('notifications').insert({
-        user_id: item.member_id,
-        title: '⚠️ تم إلغاء العضوية من باقة العائلة',
-        body: 'تم إلغاء إضافتك في باقة كرمتي بريميوم وعاد حسابك للحساب القياسي.',
-        type: 'subscription_cancelled',
-        data: { is_subscribed: false },
+      // 1. Try atomic DB function
+      const { error: rpcErr } = await supabase.rpc('remove_subscription_team_member', {
+        p_owner_id: ownerId,
+        p_member_id: item.member_id,
       });
+
+      if (rpcErr) {
+        console.warn('RPC remove_subscription_team_member fallback:', rpcErr);
+        // Fallback: Delete from subscription_team_members
+        const { error: delErr } = await supabase
+          .from('subscription_team_members')
+          .delete()
+          .eq('owner_id', ownerId)
+          .eq('member_id', item.member_id);
+
+        if (delErr) throw delErr;
+
+        // 2. Revoke premium benefits
+        await supabase
+          .from('profiles')
+          .update({
+            is_subscribed: false,
+            subscription_plan: 'none',
+            subscription_end_date: null,
+            team_owner_id: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', item.member_id);
+
+        // 3. Notification
+        await supabase.from('notifications').insert({
+          user_id: item.member_id,
+          title: '⚠️ تم إلغاء اشتراكك في باقة كرمتي للعائلة',
+          body: 'تم إلغاء إضافتك في باقة كرمتي للعائلة وعاد حسابك للباقة المجانية.',
+          type: 'subscription_cancelled',
+          data: { is_subscribed: false },
+        });
+      }
 
       showToast(`تمت إزالة (${item.full_name}) من الباقة بنجاح وإعادة الإعلانات له.`);
       await fetchMembers();
